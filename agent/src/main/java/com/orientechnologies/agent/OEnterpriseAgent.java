@@ -307,6 +307,7 @@ public class OEnterpriseAgent extends OServerPluginAbstract
       profiler.startRecording();
 
     currentProfiler.shutdown();
+
   }
 
   public void registerListener(OEnterpriseProfilerListener listener) {
