@@ -8,7 +8,10 @@ import com.orientechnologies.orient.core.db.ODatabaseLifecycleListener;
 import com.orientechnologies.orient.core.db.OrientDBInternal;
 import com.orientechnologies.orient.core.record.impl.ODocument;
 import com.orientechnologies.orient.core.sql.OSQLEngine;
+import com.orientechnologies.orient.core.sql.executor.*;
 import com.orientechnologies.orient.core.sql.functions.OSQLFunction;
+import com.orientechnologies.orient.core.sql.parser.OLocalResultSet;
+import com.orientechnologies.orient.core.sql.parser.OLocalResultSetLifecycleDecorator;
 import com.orientechnologies.orient.core.storage.OStorage;
 import com.orientechnologies.orient.core.storage.impl.local.paginated.OEnterpriseLocalPaginatedStorage;
 import com.orientechnologies.orient.server.OClientConnection;
@@ -24,7 +27,10 @@ import com.orientechnologies.orient.server.plugin.OServerPluginInfo;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * Created by Enrico Risa on 16/07/2018.
@@ -219,4 +225,7 @@ public class OEnterpriseServerImpl implements OEnterpriseServer, OServerPlugin, 
   public void unregisterFunction(String function) {
     OSQLEngine.getInstance().unregisterFunction(function);
   }
+
+
+ 
 }
