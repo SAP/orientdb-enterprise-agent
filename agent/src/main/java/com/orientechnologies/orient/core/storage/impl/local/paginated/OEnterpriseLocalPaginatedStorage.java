@@ -522,7 +522,6 @@ public class OEnterpriseLocalPaginatedStorage extends OLocalPaginatedStorage {
             if (isFull) {
               buffer.position(0);
               buffer.put(data, OLongSerializer.LONG_SIZE, data.length - OLongSerializer.LONG_SIZE);
-              cacheEntry.markDirty();
 
               if (maxLsn == null || maxLsn.compareTo(backedUpPageLsn) < 0) {
                 maxLsn = backedUpPageLsn;
@@ -532,8 +531,6 @@ public class OEnterpriseLocalPaginatedStorage extends OLocalPaginatedStorage {
               if (backedUpPageLsn.compareTo(currentPageLsn) > 0) {
                 buffer.position(0);
                 buffer.put(data, OLongSerializer.LONG_SIZE, data.length - OLongSerializer.LONG_SIZE);
-
-                cacheEntry.markDirty();
 
                 if (maxLsn == null || maxLsn.compareTo(backedUpPageLsn) < 0) {
                   maxLsn = backedUpPageLsn;
