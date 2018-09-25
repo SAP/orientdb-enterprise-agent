@@ -3,9 +3,9 @@ package com.orientechnologies.enterprise.server;
 import com.orientechnologies.enterprise.server.listener.OEnterpriseConnectionListener;
 import com.orientechnologies.enterprise.server.listener.OEnterpriseStorageListener;
 import com.orientechnologies.orient.core.Orient;
-import com.orientechnologies.orient.core.db.ODatabaseInternal;
-import com.orientechnologies.orient.core.db.ODatabaseLifecycleListener;
-import com.orientechnologies.orient.core.db.OrientDBInternal;
+import com.orientechnologies.orient.core.command.OCommandExecutor;
+import com.orientechnologies.orient.core.command.OCommandRequestText;
+import com.orientechnologies.orient.core.db.*;
 import com.orientechnologies.orient.core.record.impl.ODocument;
 import com.orientechnologies.orient.core.sql.OSQLEngine;
 import com.orientechnologies.orient.core.sql.executor.*;
@@ -35,11 +35,13 @@ import java.util.stream.Collectors;
 /**
  * Created by Enrico Risa on 16/07/2018.
  */
-public class OEnterpriseServerImpl implements OEnterpriseServer, OServerPlugin, ODatabaseLifecycleListener {
+public class OEnterpriseServerImpl implements OEnterpriseServer, OServerPlugin, ODatabaseLifecycleListener , ODatabaseListener {
 
   private OServer server;
 
   private List<OEnterpriseConnectionListener> listeners = new ArrayList<>();
+
+
 
   private List<OEnterpriseStorageListener> dbListeners = new ArrayList<>();
 
@@ -156,6 +158,7 @@ public class OEnterpriseServerImpl implements OEnterpriseServer, OServerPlugin, 
         dbListeners.forEach((l) -> l.onOpen(s));
       }
     }
+    iDatabase.registerListener(this);
   }
 
   @Override
@@ -170,6 +173,7 @@ public class OEnterpriseServerImpl implements OEnterpriseServer, OServerPlugin, 
       }
     }
 
+    iDatabase.registerListener(this);
   }
 
   @Override
@@ -228,5 +232,109 @@ public class OEnterpriseServerImpl implements OEnterpriseServer, OServerPlugin, 
   }
 
 
- 
+
+  @Override
+  public List<OResult> listQueries(Optional<Function<OClientConnection, Boolean>> filter) {
+    return getConnections().stream().filter((c) -> c.getDatabase() != null && filter.map(f -> f.apply(c)).orElse(true))
+        .flatMap((c) -> c.getDatabase().getActiveQueries().entrySet().stream().map((k) -> {
+          OResultInternal internal = new OResultInternal();
+          internal.setProperty("queryId", k.getKey());
+          OResultSet resultSet = k.getValue();
+          Optional<OExecutionPlan> plan = resultSet.getExecutionPlan();
+          String query = plan.map((p -> {
+            String q = "";
+            if (p instanceof OInternalExecutionPlan) {
+              String stm = ((OInternalExecutionPlan) p).getStatement();
+              if (stm != null) {
+                q = stm;
+              }
+            }
+            return q;
+          })).orElse("");
+
+          String user = "-";
+
+          if (c.getDatabase() != null && c.getDatabase().getUser() != null) {
+            user = c.getDatabase().getUser().getName();
+          }
+          internal.setProperty("sessionId", c.getId());
+          internal.setProperty("user", user);
+          internal.setProperty("database", c.getDatabase().getName());
+          internal.setProperty("query", query);
+          if (resultSet instanceof OLocalResultSetLifecycleDecorator) {
+            OResultSet oResultSet = ((OLocalResultSetLifecycleDecorator) resultSet).getInternal();
+            if (oResultSet instanceof OLocalResultSet) {
+              internal.setProperty("startTime", ((OLocalResultSet) oResultSet).getStartTime());
+              internal.setProperty("elapsedTimeMillis", ((OLocalResultSet) oResultSet).getTotalExecutionTime());
+            }
+          }
+          return internal;
+        })).collect(Collectors.toList());
+  }
+
+  @Override
+  public void onCreate(ODatabase iDatabase) {
+
+  }
+
+  @Override
+  public void onDelete(ODatabase iDatabase) {
+
+  }
+
+  @Override
+  public void onOpen(ODatabase iDatabase) {
+
+  }
+
+  @Override
+  public void onBeforeTxBegin(ODatabase iDatabase) {
+
+  }
+
+  @Override
+  public void onBeforeTxRollback(ODatabase iDatabase) {
+
+  }
+
+  @Override
+  public void onAfterTxRollback(ODatabase iDatabase) {
+
+  }
+
+  @Override
+  public void onBeforeTxCommit(ODatabase iDatabase) {
+
+  }
+
+  @Override
+  public void onAfterTxCommit(ODatabase iDatabase) {
+
+  }
+
+  @Override
+  public void onClose(ODatabase iDatabase) {
+
+  }
+
+  @Override
+  public void onBeforeCommand(OCommandRequestText iCommand, OCommandExecutor executor) {
+
+  }
+
+  @Override
+  public void onAfterCommand(OCommandRequestText iCommand, OCommandExecutor executor, Object result) {
+
+  }
+
+  @Override
+  public void onCommandStart(ODatabase database, OResultSet result) {
+    this.dbListeners.forEach((c-> c.onCommandStart(database,result)));
+  }
+
+  @Override
+  public void onCommandEnd(ODatabase database, OResultSet result) {
+    this.dbListeners.forEach((c-> c.onCommandEnd(database,result)));
+  }
+
 }
