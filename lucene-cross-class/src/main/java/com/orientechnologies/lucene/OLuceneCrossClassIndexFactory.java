@@ -87,6 +87,7 @@ public class OLuceneCrossClassIndexFactory implements OIndexFactory, ODatabaseLi
       String valueContainerAlgorithm, ODocument metadata, int version) throws OConfigurationException {
 
     OAbstractPaginatedStorage paginated = (OAbstractPaginatedStorage) storage.getUnderlying();
+    final int binaryFormatVersion = paginated.getConfiguration().getBinaryFormatVersion();
 
     if (metadata == null) {
       metadata = new ODocument().field("analyzer", StandardAnalyzer.class.getName());
@@ -94,8 +95,8 @@ public class OLuceneCrossClassIndexFactory implements OIndexFactory, ODatabaseLi
 
     if (FULLTEXT.toString().equalsIgnoreCase(indexType)) {
 
-      OLuceneFullTextIndex index = new OLuceneFullTextIndex(name, indexType, algorithm, version, paginated,
-          valueContainerAlgorithm, metadata);
+      OLuceneFullTextIndex index = new OLuceneFullTextIndex(name, indexType, algorithm, version, paginated, valueContainerAlgorithm,
+          metadata, binaryFormatVersion);
 
       return index;
     }
@@ -105,8 +106,7 @@ public class OLuceneCrossClassIndexFactory implements OIndexFactory, ODatabaseLi
 
   @Override
   public OIndexEngine createIndexEngine(String algorithm, String indexName, Boolean durableInNonTxMode, OStorage storage,
-      int version,
-      Map<String, String> engineProperties) {
+      int version, Map<String, String> engineProperties) {
 
     if (LUCENE_CROSS_CLASS.equalsIgnoreCase(algorithm)) {
       return new OLuceneCrossClassIndexEngine(storage, indexName);
@@ -177,8 +177,7 @@ public class OLuceneCrossClassIndexFactory implements OIndexFactory, ODatabaseLi
 
       OLogManager.instance().info(this, "creating cross class Lucene index");
 
-      dbd.command(
-          "CREATE INDEX CrossClassSearchIndex FULLTEXT ENGINE LUCENE_CROSS_CLASS").close();
+      dbd.command("CREATE INDEX CrossClassSearchIndex FULLTEXT ENGINE LUCENE_CROSS_CLASS").close();
     }
   }
 }
