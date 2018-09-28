@@ -1,5 +1,11 @@
 package com.orientechnologies.enterprise.server;
 
+<<<<<<< HEAD
+=======
+import com.orientechnologies.agent.OEnterpriseAgent;
+import com.orientechnologies.agent.operation.NodesManager;
+import com.orientechnologies.agent.services.metrics.server.database.QueryInfo;
+>>>>>>> 61095e1a... Added language in query profiling
 import com.orientechnologies.enterprise.server.listener.OEnterpriseConnectionListener;
 import com.orientechnologies.enterprise.server.listener.OEnterpriseStorageListener;
 import com.orientechnologies.orient.core.Orient;
@@ -24,10 +30,7 @@ import com.orientechnologies.orient.server.network.protocol.http.command.OServer
 import com.orientechnologies.orient.server.plugin.OServerPlugin;
 import com.orientechnologies.orient.server.plugin.OServerPluginInfo;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -35,19 +38,19 @@ import java.util.stream.Collectors;
 /**
  * Created by Enrico Risa on 16/07/2018.
  */
-public class OEnterpriseServerImpl implements OEnterpriseServer, OServerPlugin, ODatabaseLifecycleListener , ODatabaseListener {
+public class OEnterpriseServerImpl implements OEnterpriseServer, OServerPlugin, ODatabaseLifecycleListener, ODatabaseListener {
 
   private OServer server;
 
   private List<OEnterpriseConnectionListener> listeners = new ArrayList<>();
 
-
-
   private List<OEnterpriseStorageListener> dbListeners = new ArrayList<>();
 
   private Map<String, OEnterpriseLocalPaginatedStorage> storages = new ConcurrentHashMap<>();
 
-  public OEnterpriseServerImpl(OServer server) {
+  private Map<Class<OResultSet>, Function<OResultSet, QueryInfo>> queryInfo = new HashMap<>();
+
+  public OEnterpriseServerImpl(OServer server, OEnterpriseAgent agent) {
     this.server = server;
     server.getPluginManager().registerPlugin(new OServerPluginInfo("Enterprise Server", null, null, null, this, null, 0, null));
     Orient.instance().addDbLifecycleListener(this);
@@ -240,17 +243,6 @@ public class OEnterpriseServerImpl implements OEnterpriseServer, OServerPlugin, 
           OResultInternal internal = new OResultInternal();
           internal.setProperty("queryId", k.getKey());
           OResultSet resultSet = k.getValue();
-          Optional<OExecutionPlan> plan = resultSet.getExecutionPlan();
-          String query = plan.map((p -> {
-            String q = "";
-            if (p instanceof OInternalExecutionPlan) {
-              String stm = ((OInternalExecutionPlan) p).getStatement();
-              if (stm != null) {
-                q = stm;
-              }
-            }
-            return q;
-          })).orElse("");
 
           String user = "-";
 
@@ -260,14 +252,15 @@ public class OEnterpriseServerImpl implements OEnterpriseServer, OServerPlugin, 
           internal.setProperty("sessionId", c.getId());
           internal.setProperty("user", user);
           internal.setProperty("database", c.getDatabase().getName());
-          internal.setProperty("query", query);
-          if (resultSet instanceof OLocalResultSetLifecycleDecorator) {
-            OResultSet oResultSet = ((OLocalResultSetLifecycleDecorator) resultSet).getInternal();
-            if (oResultSet instanceof OLocalResultSet) {
-              internal.setProperty("startTime", ((OLocalResultSet) oResultSet).getStartTime());
-              internal.setProperty("elapsedTimeMillis", ((OLocalResultSet) oResultSet).getTotalExecutionTime());
-            }
-          }
+
+          Optional<QueryInfo> info = getQueryInfo(resultSet);
+
+          info.ifPresent((it) -> {
+            internal.setProperty("query", it.getStatement());
+            internal.setProperty("startTime", it.getStartTime());
+            internal.setProperty("elapsedTimeMillis", it.getElapsedTimeMillis());
+          });
+
           return internal;
         })).collect(Collectors.toList());
   }
@@ -329,12 +322,44 @@ public class OEnterpriseServerImpl implements OEnterpriseServer, OServerPlugin, 
 
   @Override
   public void onCommandStart(ODatabase database, OResultSet result) {
-    this.dbListeners.forEach((c-> c.onCommandStart(database,result)));
+    this.dbListeners.forEach((c -> c.onCommandStart(database, result)));
   }
 
   @Override
   public void onCommandEnd(ODatabase database, OResultSet result) {
-    this.dbListeners.forEach((c-> c.onCommandEnd(database,result)));
+    this.dbListeners.forEach((c -> c.onCommandEnd(database, result)));
+  }
+
+
+  @Override
+  public Optional<QueryInfo> getQueryInfo(OResultSet resultSet) {
+
+    QueryInfo info = null;
+
+    if (resultSet instanceof OLocalResultSetLifecycleDecorator) {
+      OResultSet oResultSet = ((OLocalResultSetLifecycleDecorator) resultSet).getInternal();
+      if (oResultSet instanceof OLocalResultSet) {
+        OLocalResultSet oLocalResultSet = (OLocalResultSet) oResultSet;
+        Optional<OExecutionPlan> plan = oLocalResultSet.getExecutionPlan();
+        String query = plan.map((p -> {
+          String q = "";
+          if (p instanceof OInternalExecutionPlan) {
+            String stm = ((OInternalExecutionPlan) p).getStatement();
+            if (stm != null) {
+              q = stm;
+            }
+          }
+          return q;
+        })).orElse("");
+        info = new QueryInfo(query, "sql", oLocalResultSet.getStartTime(), oLocalResultSet.getTotalExecutionTime());
+      } else if (oResultSet instanceof OQueryMetrics) {
+        OQueryMetrics oQueryMetrics = (OQueryMetrics) oResultSet;
+        info = new QueryInfo(oQueryMetrics.getStatement(), oQueryMetrics.getLanguage(), oQueryMetrics.getStartTime(),
+            oQueryMetrics.getElapsedTimeMillis());
+      }
+    }
+
+    return Optional.ofNullable(info);
   }
 
 }
