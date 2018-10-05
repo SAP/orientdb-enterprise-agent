@@ -35,9 +35,9 @@ import com.orientechnologies.orient.core.storage.cache.OCacheEntry;
 import com.orientechnologies.orient.core.storage.cache.OReadCache;
 import com.orientechnologies.orient.core.storage.fs.OFileClassic;
 import com.orientechnologies.orient.core.storage.impl.local.paginated.base.ODurablePage;
-import com.orientechnologies.orient.core.storage.impl.local.paginated.wal.ODiskWriteAheadLog;
 import com.orientechnologies.orient.core.storage.impl.local.paginated.wal.OLogSequenceNumber;
 import com.orientechnologies.orient.core.storage.impl.local.paginated.wal.OWriteAheadLog;
+import com.orientechnologies.orient.core.storage.impl.local.paginated.wal.cas.OCASDiskWriteAheadLog;
 
 import java.io.*;
 import java.nio.ByteBuffer;
@@ -59,8 +59,8 @@ public class OEnterpriseLocalPaginatedStorage extends OLocalPaginatedStorage {
   private final        AtomicBoolean backupInProgress              = new AtomicBoolean(false);
 
   public OEnterpriseLocalPaginatedStorage(String name, String filePath, String mode, int id, OReadCache readCache,
-      OClosableLinkedContainer<Long, OFileClassic> files) throws IOException {
-    super(name, filePath, mode, id, readCache, files);
+      OClosableLinkedContainer<Long, OFileClassic> files, long maxWalSegSize) throws IOException {
+    super(name, filePath, mode, id, readCache, files, maxWalSegSize);
     OLogManager.instance().info(this, "Enterprise storage installed correctly.");
   }
 
@@ -282,7 +282,7 @@ public class OEnterpriseLocalPaginatedStorage extends OLocalPaginatedStorage {
               final ZipEntry configurationEntry = new ZipEntry(CONF_UTF_8_ENTRY_NAME);
 
               zipOutputStream.putNextEntry(configurationEntry);
-              final byte[] btConf =  ((OStorageConfigurationImpl)getConfiguration()).toStream(Charset.forName("UTF-8"));
+              final byte[] btConf = ((OStorageConfigurationImpl) getConfiguration()).toStream(Charset.forName("UTF-8"));
 
               zipOutputStream.write(btConf);
               zipOutputStream.closeEntry();
@@ -462,7 +462,7 @@ public class OEnterpriseLocalPaginatedStorage extends OLocalPaginatedStorage {
           continue;
         }
 
-        if (zipEntry.getName().toLowerCase(serverLocale).endsWith(ODiskWriteAheadLog.WAL_SEGMENT_EXTENSION)) {
+        if (zipEntry.getName().toLowerCase(serverLocale).endsWith(OCASDiskWriteAheadLog.WAL_SEGMENT_EXTENSION)) {
           addFileToDirectory(zipEntry.getName(), zipInputStream, walTempDir);
 
           continue;
@@ -505,14 +505,14 @@ public class OEnterpriseLocalPaginatedStorage extends OLocalPaginatedStorage {
 
           final long pageIndex = OLongSerializer.INSTANCE.deserializeNative(data, 0);
 
-          OCacheEntry cacheEntry = readCache.loadForWrite(fileId, pageIndex, true, writeCache, 1, true);
+          OCacheEntry cacheEntry = readCache.loadForWrite(fileId, pageIndex, true, writeCache, 1, true, null);
 
           if (cacheEntry == null) {
             do {
               if (cacheEntry != null)
                 readCache.releaseFromWrite(cacheEntry, writeCache);
 
-              cacheEntry = readCache.allocateNewPage(fileId, writeCache, true);
+              cacheEntry = readCache.allocateNewPage(fileId, writeCache, true, null);
             } while (cacheEntry.getPageIndex() != pageIndex);
           }
 
@@ -607,13 +607,12 @@ public class OEnterpriseLocalPaginatedStorage extends OLocalPaginatedStorage {
       }
     }
 
+    ((OStorageConfigurationImpl) getConfiguration()).fromStream(buffer, 0, rb, charset);
+    ((OStorageConfigurationImpl) getConfiguration()).update();
 
-    ((OStorageConfigurationImpl)getConfiguration()).fromStream(buffer, 0, rb, charset);
-    ((OStorageConfigurationImpl)getConfiguration()).update();
+    ((OStorageConfigurationImpl) getConfiguration()).close();
 
-    ((OStorageConfigurationImpl)getConfiguration()).close();
-
-    ((OStorageConfigurationImpl)getConfiguration()).load(config);
+    ((OStorageConfigurationImpl) getConfiguration()).load(config);
   }
 
 }
