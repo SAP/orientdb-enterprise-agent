@@ -3,7 +3,7 @@
   <parent>
     <artifactId>orientdb-enterprise-parent</artifactId>
     <groupId>com.orientechnologies</groupId>
-    <version>3.0.10-SNAPSHOT</version>
+    <version>3.0.10</version>
   </parent>
   <modelVersion>4.0.0</modelVersion>
   <artifactId>agent</artifactId>
@@ -108,7 +108,7 @@
     <dependency>
       <groupId>com.orientechnologies</groupId>
       <artifactId>orientdb-test-commons</artifactId>
-      <version>3.0.10-SNAPSHOT</version>
+      <version>3.0.10</version>
       <scope>test</scope>
       <exclusions>
         <exclusion>
@@ -132,7 +132,7 @@
     <dependency>
       <groupId>com.orientechnologies</groupId>
       <artifactId>orientdb-core</artifactId>
-      <version>3.0.10-SNAPSHOT</version>
+      <version>3.0.10</version>
       <type>test-jar</type>
       <scope>test</scope>
       <exclusions>
@@ -157,7 +157,7 @@
     <dependency>
       <groupId>com.orientechnologies</groupId>
       <artifactId>orientdb-lucene</artifactId>
-      <version>3.0.10-SNAPSHOT</version>
+      <version>3.0.10</version>
       <type>test-jar</type>
       <scope>test</scope>
       <exclusions>
@@ -222,7 +222,7 @@
     <dependency>
       <groupId>com.orientechnologies</groupId>
       <artifactId>orientdb-core</artifactId>
-      <version>3.0.10-SNAPSHOT</version>
+      <version>3.0.10</version>
       <scope>provided</scope>
       <exclusions>
         <exclusion>
@@ -246,13 +246,13 @@
     <dependency>
       <groupId>com.orientechnologies</groupId>
       <artifactId>orientdb-client</artifactId>
-      <version>3.0.10-SNAPSHOT</version>
+      <version>3.0.10</version>
       <scope>provided</scope>
     </dependency>
     <dependency>
       <groupId>com.orientechnologies</groupId>
       <artifactId>orientdb-server</artifactId>
-      <version>3.0.10-SNAPSHOT</version>
+      <version>3.0.10</version>
       <scope>provided</scope>
       <exclusions>
         <exclusion>
@@ -276,7 +276,7 @@
     <dependency>
       <groupId>com.orientechnologies</groupId>
       <artifactId>orientdb-distributed</artifactId>
-      <version>3.0.10-SNAPSHOT</version>
+      <version>3.0.10</version>
       <scope>provided</scope>
       <exclusions>
         <exclusion>
@@ -288,7 +288,7 @@
     <dependency>
       <groupId>com.orientechnologies</groupId>
       <artifactId>orientdb-lucene</artifactId>
-      <version>3.0.10-SNAPSHOT</version>
+      <version>3.0.10</version>
       <scope>provided</scope>
       <exclusions>
         <exclusion>
@@ -352,13 +352,19 @@
     <dependency>
       <groupId>com.orientechnologies</groupId>
       <artifactId>orientdb-tools</artifactId>
-      <version>3.0.10-SNAPSHOT</version>
+      <version>3.0.10</version>
       <scope>provided</scope>
+      <exclusions>
+        <exclusion>
+          <artifactId>jaxb-api</artifactId>
+          <groupId>javax.xml.bind</groupId>
+        </exclusion>
+      </exclusions>
     </dependency>
     <dependency>
       <groupId>com.orientechnologies</groupId>
       <artifactId>orientdb-graphdb</artifactId>
-      <version>3.0.10-SNAPSHOT</version>
+      <version>3.0.10</version>
       <scope>test</scope>
       <exclusions>
         <exclusion>
