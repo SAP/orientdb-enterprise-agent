@@ -15,6 +15,7 @@ import com.orientechnologies.orientdb.cloud.protocol.CommandResponse;
 import com.orientechnologies.orientdb.cloud.protocol.backup.*;
 import com.orientechnologies.orientdb.cloud.protocol.backup.log.BackupLogsList;
 import org.junit.Assert;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import java.io.File;
@@ -28,6 +29,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 /**
  * Created by Enrico Risa on 19/12/2017.
  */
+@Ignore
 public class BackupCommandProcessorDistributedTest extends AbstractEnterpriseServerClusterTest {
 
   private final String DB_NAME     = "BackupCommandProcessorDistributedTest";
