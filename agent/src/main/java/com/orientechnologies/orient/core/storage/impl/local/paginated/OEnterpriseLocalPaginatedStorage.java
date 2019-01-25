@@ -34,6 +34,7 @@ import com.orientechnologies.orient.core.exception.OBackupInProgressException;
 import com.orientechnologies.orient.core.exception.OStorageException;
 import com.orientechnologies.orient.core.storage.cache.OCacheEntry;
 import com.orientechnologies.orient.core.storage.cache.OReadCache;
+import com.orientechnologies.orient.core.storage.config.OClusterBasedStorageConfiguration;
 import com.orientechnologies.orient.core.storage.disk.OLocalPaginatedStorage;
 import com.orientechnologies.orient.core.storage.fs.OFileClassic;
 import com.orientechnologies.orient.core.storage.impl.local.paginated.base.ODurablePage;
@@ -282,14 +283,6 @@ public class OEnterpriseLocalPaginatedStorage extends OLocalPaginatedStorage {
 
             try {
               lastLsn = backupPagesWithChanges(fromLsn, zipOutputStream);
-              final ZipEntry configurationEntry = new ZipEntry(CONF_UTF_8_ENTRY_NAME);
-
-              zipOutputStream.putNextEntry(configurationEntry);
-              final byte[] btConf = ((OStorageConfigurationImpl) getConfiguration()).toStream(Charset.forName("UTF-8"));
-
-              zipOutputStream.write(btConf);
-              zipOutputStream.closeEntry();
-
               final OLogSequenceNumber lastWALLsn = copyWALToIncrementalBackup(zipOutputStream, startSegment);
 
               if (lastWALLsn != null && (lastLsn == null || lastWALLsn.compareTo(lastLsn) > 0)) {
@@ -423,6 +416,7 @@ public class OEnterpriseLocalPaginatedStorage extends OLocalPaginatedStorage {
     try {
       final List<String> currentFiles = new ArrayList<String>(writeCache.files().keySet());
       final Locale serverLocale = configuration.getLocaleInstance();
+      final OContextConfiguration contextConfiguration = configuration.getContextConfiguration();
 
       closeClusters(false);
       closeIndexes(false);
@@ -466,8 +460,16 @@ public class OEnterpriseLocalPaginatedStorage extends OLocalPaginatedStorage {
         }
 
         if (zipEntry.getName().toLowerCase(serverLocale).endsWith(OCASDiskWriteAheadLog.WAL_SEGMENT_EXTENSION)) {
-          addFileToDirectory(zipEntry.getName(), zipInputStream, walTempDir);
+          final String walName = zipEntry.getName();
+          final int segmentIndex = walName
+              .lastIndexOf(".", walName.length() - OCASDiskWriteAheadLog.WAL_SEGMENT_EXTENSION.length() - 1);
+          final String storageName = getName();
 
+          if (segmentIndex < 0) {
+            throw new IllegalStateException("Can not find index of WAL segment");
+          }
+
+          addFileToDirectory(storageName + walName.substring(segmentIndex), zipInputStream, walTempDir);
           continue;
         }
 
@@ -508,8 +510,7 @@ public class OEnterpriseLocalPaginatedStorage extends OLocalPaginatedStorage {
 
           final long pageIndex = OLongSerializer.INSTANCE.deserializeNative(data, 0);
 
-          OCacheEntry cacheEntry = readCache.loadForWrite(fileId, pageIndex, true, writeCache, 1,
-              false, null);
+          OCacheEntry cacheEntry = readCache.loadForWrite(fileId, pageIndex, true, writeCache, 1, false, null);
 
           if (cacheEntry == null) {
             do {
@@ -574,11 +575,13 @@ public class OEnterpriseLocalPaginatedStorage extends OLocalPaginatedStorage {
         writeAheadLog.moveLsnAfter(maxLsn);
       }
 
-      if (walTempDir != null) {
-        if (!walTempDir.delete()) {
-          OLogManager.instance().error(this, "Can not remove temporary backup directory " + walTempDir.getAbsolutePath(), null);
-        }
+      if (!walTempDir.delete()) {
+        OLogManager.instance().error(this, "Can not remove temporary backup directory " + walTempDir.getAbsolutePath(), null);
       }
+
+      ((OClusterBasedStorageConfiguration) configuration).close();
+      configuration = new OClusterBasedStorageConfiguration(this);
+      ((OClusterBasedStorageConfiguration) configuration).load(contextConfiguration);
 
       openClusters();
       openIndexes();
