@@ -3,7 +3,7 @@
   <parent>
     <artifactId>orientdb-enterprise-parent</artifactId>
     <groupId>com.orientechnologies</groupId>
-    <version>3.0.17-SNAPSHOT</version>
+    <version>3.0.17</version>
   </parent>
   <modelVersion>4.0.0</modelVersion>
   <artifactId>agent</artifactId>
@@ -44,6 +44,8 @@
         <artifactId>maven-surefire-plugin</artifactId>
         <version>${surefire.version}</version>
         <configuration>
+          <forkCount>1</forkCount>
+          <reuseForks>false</reuseForks>
           <excludes>
             <exclude>${exclude.kerberos.tests}</exclude>
           </excludes>
@@ -108,7 +110,7 @@
     <dependency>
       <groupId>com.orientechnologies</groupId>
       <artifactId>orientdb-test-commons</artifactId>
-      <version>3.0.17-SNAPSHOT</version>
+      <version>3.0.17</version>
       <scope>test</scope>
       <exclusions>
         <exclusion>
@@ -132,7 +134,7 @@
     <dependency>
       <groupId>com.orientechnologies</groupId>
       <artifactId>orientdb-core</artifactId>
-      <version>3.0.17-SNAPSHOT</version>
+      <version>3.0.17</version>
       <type>test-jar</type>
       <scope>test</scope>
       <exclusions>
@@ -157,7 +159,7 @@
     <dependency>
       <groupId>com.orientechnologies</groupId>
       <artifactId>orientdb-lucene</artifactId>
-      <version>3.0.17-SNAPSHOT</version>
+      <version>3.0.17</version>
       <type>test-jar</type>
       <scope>test</scope>
       <exclusions>
@@ -222,7 +224,7 @@
     <dependency>
       <groupId>com.orientechnologies</groupId>
       <artifactId>orientdb-core</artifactId>
-      <version>3.0.17-SNAPSHOT</version>
+      <version>3.0.17</version>
       <scope>provided</scope>
       <exclusions>
         <exclusion>
@@ -246,13 +248,13 @@
     <dependency>
       <groupId>com.orientechnologies</groupId>
       <artifactId>orientdb-client</artifactId>
-      <version>3.0.17-SNAPSHOT</version>
+      <version>3.0.17</version>
       <scope>provided</scope>
     </dependency>
     <dependency>
       <groupId>com.orientechnologies</groupId>
       <artifactId>orientdb-server</artifactId>
-      <version>3.0.17-SNAPSHOT</version>
+      <version>3.0.17</version>
       <scope>provided</scope>
       <exclusions>
         <exclusion>
@@ -276,7 +278,7 @@
     <dependency>
       <groupId>com.orientechnologies</groupId>
       <artifactId>orientdb-distributed</artifactId>
-      <version>3.0.17-SNAPSHOT</version>
+      <version>3.0.17</version>
       <scope>provided</scope>
       <exclusions>
         <exclusion>
@@ -288,7 +290,7 @@
     <dependency>
       <groupId>com.orientechnologies</groupId>
       <artifactId>orientdb-lucene</artifactId>
-      <version>3.0.17-SNAPSHOT</version>
+      <version>3.0.17</version>
       <scope>provided</scope>
       <exclusions>
         <exclusion>
@@ -352,7 +354,7 @@
     <dependency>
       <groupId>com.orientechnologies</groupId>
       <artifactId>orientdb-tools</artifactId>
-      <version>3.0.17-SNAPSHOT</version>
+      <version>3.0.17</version>
       <scope>provided</scope>
       <exclusions>
         <exclusion>
@@ -364,7 +366,7 @@
     <dependency>
       <groupId>com.orientechnologies</groupId>
       <artifactId>orientdb-graphdb</artifactId>
-      <version>3.0.17-SNAPSHOT</version>
+      <version>3.0.17</version>
       <scope>test</scope>
       <exclusions>
         <exclusion>
