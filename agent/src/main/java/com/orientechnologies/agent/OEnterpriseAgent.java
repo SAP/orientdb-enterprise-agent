@@ -68,8 +68,8 @@ import java.util.*;
 
 public class OEnterpriseAgent extends OServerPluginAbstract
     implements ODatabaseLifecycleListener, OPluginLifecycleListener, OEnterpriseEndpoint {
-  public static final String EE                = "ee.";
-  private             String enterpriseVersion = "";
+  public static final String  EE                = "ee.";
+  private             String  enterpriseVersion = "";
   public              OServer server;
   private             String  license;
   public static final String  TOKEN;
@@ -89,8 +89,6 @@ public class OEnterpriseAgent extends OServerPluginAbstract
 
   private   OBackupManager      backupManager;
   protected OEnterpriseProfiler profiler;
-
-  private OEnterpriseCloudManager cloudManager;
 
   private NodesManager nodesManager;
 
@@ -168,9 +166,7 @@ public class OEnterpriseAgent extends OServerPluginAbstract
         installer.setDaemon(true);
         installer.start();
         Orient.instance().addDbLifecycleListener(this);
-        cloudManager = new OEnterpriseCloudManager(this);
 
-        cloudManager.start();
       }
     } catch (Exception e) {
       OLogManager.instance().warn(this, "Error loading agent.properties file. EE will be disabled: %s", e.getMessage());
@@ -181,8 +177,6 @@ public class OEnterpriseAgent extends OServerPluginAbstract
   @Override
   public void shutdown() {
     if (enabled) {
-
-      cloudManager.shutdown();
 
       unregisterSecurityComponents();
       uninstallBackupManager();
@@ -503,10 +497,6 @@ public class OEnterpriseAgent extends OServerPluginAbstract
     }
   }
 
-  public OEnterpriseCloudManager getCloudManager() {
-    return cloudManager;
-  }
-
   public boolean isDistributed() {
     return server.getDistributedManager() != null;
   }
@@ -514,14 +504,6 @@ public class OEnterpriseAgent extends OServerPluginAbstract
   public ODistributedServerManager getDistributedManager() {
 
     return server.getDistributedManager();
-  }
-
-  public boolean isCloudConnected() {
-    return cloudManager.isConnected();
-  }
-
-  public String getMonitoringUrl() {
-    return cloudManager.getMonitoringUrl();
   }
 
   public String getNodeName() {

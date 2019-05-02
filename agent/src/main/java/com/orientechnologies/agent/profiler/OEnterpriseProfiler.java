@@ -121,8 +121,8 @@ public class OEnterpriseProfiler extends OAbstractProfiler implements ODistribut
 
   @Override
   public ODocument getContext() {
-    return new ODocument().field("enterprise", true).field("cloud", agent.isCloudConnected())
-        .field("monitoringUrl", agent.getMonitoringUrl());
+    return new ODocument().field("enterprise", true).field("cloud", false)
+        .field("monitoringUrl", "");
   }
 
   public boolean startRecording() {

@@ -15,7 +15,6 @@
     <packaging>pom</packaging>
 
     <modules>
-        <module>orientdb-cloud-protocol</module>
         <module>agent</module>
         <module>lucene-cross-class</module>
 
