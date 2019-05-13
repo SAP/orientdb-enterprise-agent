@@ -1,11 +1,7 @@
 package com.orientechnologies.enterprise.server;
 
-<<<<<<< HEAD
-=======
 import com.orientechnologies.agent.OEnterpriseAgent;
-import com.orientechnologies.agent.operation.NodesManager;
 import com.orientechnologies.agent.services.metrics.server.database.QueryInfo;
->>>>>>> 61095e1a... Added language in query profiling
 import com.orientechnologies.enterprise.server.listener.OEnterpriseConnectionListener;
 import com.orientechnologies.enterprise.server.listener.OEnterpriseStorageListener;
 import com.orientechnologies.orient.core.Orient;
