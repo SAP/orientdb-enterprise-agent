@@ -30,18 +30,25 @@ import com.orientechnologies.common.util.OCallable;
 import com.orientechnologies.common.util.OPair;
 import com.orientechnologies.orient.core.config.OContextConfiguration;
 import com.orientechnologies.orient.core.config.OStorageConfigurationImpl;
+import com.orientechnologies.orient.core.db.record.ORecordOperation;
 import com.orientechnologies.orient.core.exception.OBackupInProgressException;
 import com.orientechnologies.orient.core.exception.OStorageException;
+import com.orientechnologies.orient.core.id.ORecordId;
+import com.orientechnologies.orient.core.storage.ORawBuffer;
+import com.orientechnologies.orient.core.storage.ORecordCallback;
+import com.orientechnologies.orient.core.storage.OStorageOperationResult;
 import com.orientechnologies.orient.core.storage.cache.OCacheEntry;
 import com.orientechnologies.orient.core.storage.cache.OReadCache;
 import com.orientechnologies.orient.core.storage.config.OClusterBasedStorageConfiguration;
 import com.orientechnologies.orient.core.storage.disk.OLocalPaginatedStorage;
 import com.orientechnologies.orient.core.storage.fs.OFileClassic;
+import com.orientechnologies.orient.core.storage.impl.local.OMicroTransaction;
 import com.orientechnologies.orient.core.storage.impl.local.OStorageConfigurationSegment;
 import com.orientechnologies.orient.core.storage.impl.local.paginated.base.ODurablePage;
 import com.orientechnologies.orient.core.storage.impl.local.paginated.wal.OLogSequenceNumber;
 import com.orientechnologies.orient.core.storage.impl.local.paginated.wal.OWriteAheadLog;
 import com.orientechnologies.orient.core.storage.impl.local.paginated.wal.cas.OCASDiskWriteAheadLog;
+import com.orientechnologies.orient.core.tx.OTransactionInternal;
 
 import java.io.*;
 import java.nio.ByteBuffer;
@@ -62,6 +69,9 @@ public class OEnterpriseLocalPaginatedStorage extends OLocalPaginatedStorage {
   public static final  String        INCREMENTAL_BACKUP_DATEFORMAT = "yyyy-MM-dd-HH-mm-ss";
   private static final String        CONF_UTF_8_ENTRY_NAME         = "database_utf8.ocf";
   private final        AtomicBoolean backupInProgress              = new AtomicBoolean(false);
+
+  private List<OEnterpriseStorageOperationListener> listeners = Collections.synchronizedList(new ArrayList<>());
+
 
   public OEnterpriseLocalPaginatedStorage(String name, String filePath, String mode, int id, OReadCache readCache,
       OClosableLinkedContainer<Long, OFileClassic> files, long maxWalSegSize) throws IOException {
@@ -152,6 +162,14 @@ public class OEnterpriseLocalPaginatedStorage extends OLocalPaginatedStorage {
     }
 
     return fileName;
+  }
+
+  public void registerStorageListener(OEnterpriseStorageOperationListener listener) {
+    this.listeners.add(listener);
+  }
+
+  public void unRegisterStorageListener(OEnterpriseStorageOperationListener listener) {
+    this.listeners.remove(listener);
   }
 
   private String[] fetchIBUFiles(final File backupDirectory) throws IOException {
@@ -615,6 +633,39 @@ public class OEnterpriseLocalPaginatedStorage extends OLocalPaginatedStorage {
       stateLock.releaseWriteLock();
     }
   }
+
+  @Override
+  public OStorageOperationResult<ORawBuffer> readRecord(ORecordId iRid, String iFetchPlan, boolean iIgnoreCache,
+      boolean prefetchRecords, ORecordCallback<ORawBuffer> iCallback) {
+
+    try {
+      return super.readRecord(iRid, iFetchPlan, iIgnoreCache, prefetchRecords, iCallback);
+    } finally {
+      listeners.forEach((l) -> {
+        l.onRead();
+      });
+    }
+  }
+
+  @Override
+  public List<ORecordOperation> commit(OTransactionInternal clientTx) {
+    List<ORecordOperation> operations = super.commit(clientTx);
+    listeners.forEach((l) -> l.onCommit(operations));
+    return operations;
+  }
+
+  @Override
+  public void rollback(OTransactionInternal clientTx) {
+    super.rollback(clientTx);
+    listeners.forEach((l) -> l.onRollback());
+  }
+
+  @Override
+  public void rollback(OMicroTransaction microTransaction) {
+    super.rollback(microTransaction);
+    listeners.forEach((l) -> l.onRollback());
+  }
+
 
   private void replaceConfiguration(ZipInputStream zipInputStream, Charset charset) throws IOException {
     byte[] buffer = new byte[1024];
