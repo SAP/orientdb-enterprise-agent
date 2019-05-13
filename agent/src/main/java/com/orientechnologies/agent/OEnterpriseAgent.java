@@ -108,7 +108,7 @@ public class OEnterpriseAgent extends OServerPluginAbstract
     enabled = false;
     server = oServer;
 
-    enterpriseServer = new OEnterpriseServerImpl(server);
+    enterpriseServer = new OEnterpriseServerImpl(server,this);
     for (OServerParameterConfiguration p : iParams) {
       if (p.name.equals("license"))
         license = p.value;

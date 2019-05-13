@@ -158,6 +158,10 @@
           <artifactId>commons-lang</artifactId>
           <groupId>commons-lang</groupId>
         </exclusion>
+        <exclusion>
+          <artifactId>javax.activation-api</artifactId>
+          <groupId>javax.activation</groupId>
+        </exclusion>
       </exclusions>
     </dependency>
     <dependency>
@@ -250,6 +254,10 @@
         <exclusion>
           <artifactId>commons-lang</artifactId>
           <groupId>commons-lang</groupId>
+        </exclusion>
+        <exclusion>
+          <artifactId>javax.activation-api</artifactId>
+          <groupId>javax.activation</groupId>
         </exclusion>
       </exclusions>
     </dependency>
@@ -381,8 +389,9 @@
     </dependency>
   </dependencies>
   <properties>
-    <exclude.kerberos.tests>%regex[com.orientechnologies.security.kerberos.*Test.*]</exclude.kerberos.tests>
+    <metrics.version>4.0.0</metrics.version>
     <surefire.version>2.19.1</surefire.version>
+    <exclude.kerberos.tests>%regex[com.orientechnologies.security.kerberos.*Test.*]</exclude.kerberos.tests>
   </properties>
 </project>
 
