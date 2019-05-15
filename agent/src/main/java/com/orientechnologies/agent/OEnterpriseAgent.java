@@ -151,6 +151,8 @@ public class OEnterpriseAgent extends OServerPluginAbstract
 
         registerSecurityComponents();
 
+        installCommands();
+
         Thread installer = new Thread(() -> {
 
           int retry = 0;
