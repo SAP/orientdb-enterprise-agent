@@ -9,6 +9,7 @@ import com.orientechnologies.orient.core.sql.executor.OResultSet;
 import com.orientechnologies.orient.core.sql.functions.OSQLFunction;
 import com.orientechnologies.orient.server.OClientConnection;
 import com.orientechnologies.orient.server.OSystemDatabase;
+import com.orientechnologies.orient.server.distributed.ODistributedServerManager;
 import com.orientechnologies.orient.server.network.protocol.http.command.OServerCommand;
 
 import java.util.Collections;
@@ -55,5 +56,7 @@ public interface OEnterpriseServer {
   List<OResult> listQueries(Optional<Function<OClientConnection, Boolean>> filter);
 
   Optional<QueryInfo> getQueryInfo(OResultSet resultSet);
+
+  ODistributedServerManager getDistributedManager();
 
 }

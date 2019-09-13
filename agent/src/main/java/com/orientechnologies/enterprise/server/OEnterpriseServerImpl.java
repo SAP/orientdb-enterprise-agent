@@ -20,6 +20,7 @@ import com.orientechnologies.orient.server.OClientConnection;
 import com.orientechnologies.orient.server.OServer;
 import com.orientechnologies.orient.server.OSystemDatabase;
 import com.orientechnologies.orient.server.config.OServerParameterConfiguration;
+import com.orientechnologies.orient.server.distributed.ODistributedServerManager;
 import com.orientechnologies.orient.server.network.OServerNetworkListener;
 import com.orientechnologies.orient.server.network.protocol.ONetworkProtocol;
 import com.orientechnologies.orient.server.network.protocol.http.ONetworkProtocolHttpAbstract;
@@ -366,6 +367,10 @@ public class OEnterpriseServerImpl implements OEnterpriseServer, OServerPlugin, 
     }
 
     return info;
+  }
+
+  public ODistributedServerManager getDistributedManager() {
+    return server.getDistributedManager();
   }
 
 }

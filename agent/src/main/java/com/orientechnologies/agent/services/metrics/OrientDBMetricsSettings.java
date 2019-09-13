@@ -35,8 +35,15 @@ public class OrientDBMetricsSettings {
     }
   }
 
-  class ClusterMetricsSettings {
+  public class ClusterMetricsSettings {
     public Boolean enabled = false;
+
+    public DistributedTracing requestTracing = new DistributedTracing();
+
+    public class DistributedTracing {
+      public Boolean enabled      = false;
+      public Long    minExecution = 0l;
+    }
 
     public ClusterMetricsSettings() {
     }

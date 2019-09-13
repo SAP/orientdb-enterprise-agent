@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.orientechnologies.agent.profiler.OMetricsRegistry;
 import com.orientechnologies.agent.profiler.OMetricsRegistryFactory;
 import com.orientechnologies.agent.services.OEnterpriseService;
+import com.orientechnologies.agent.services.metrics.cluster.OrientDBClusterMetrics;
 import com.orientechnologies.agent.services.metrics.server.OrientDBServerMetrics;
 import com.orientechnologies.agent.services.metrics.server.database.OrientDBDatabasesMetrics;
 import com.orientechnologies.common.io.OIOUtils;
@@ -85,7 +86,6 @@ public class OrientDBMetricsService implements OEnterpriseService {
 
     server.registerStatelessCommand(new OrientDBMetricsCommand(registry, this));
 
-
   }
 
   private void config() {
@@ -97,6 +97,9 @@ public class OrientDBMetricsService implements OEnterpriseService {
 
       if (settings.database.enabled) {
         metricSupport.add(new OrientDBDatabasesMetrics(server, registry));
+      }
+      if (settings.cluster.enabled) {
+        metricSupport.add(new OrientDBClusterMetrics(server, registry, settings));
       }
 
     }
