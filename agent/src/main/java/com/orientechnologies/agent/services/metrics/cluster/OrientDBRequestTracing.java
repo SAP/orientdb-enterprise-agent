@@ -211,7 +211,7 @@ public class OrientDBRequestTracing extends Thread implements ODistributedLifecy
 
       String[] val = values.stream().map(v -> v.toString()).toArray(size -> new String[size]);
       writer.writeNext(val);
-
+      writer.flush();
     } catch (Exception e) {
       e.printStackTrace();
     }
