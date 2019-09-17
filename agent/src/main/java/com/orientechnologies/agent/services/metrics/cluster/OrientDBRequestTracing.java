@@ -19,6 +19,7 @@ import java.io.IOException;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -30,7 +31,7 @@ public class OrientDBRequestTracing extends Thread implements ODistributedLifecy
   private OrientDBMetricsSettings.ClusterMetricsSettings.DistributedTracing requestTracing;
   private String                                                            directory;
 
-  private ArrayBlockingQueue<TracingData> tracingData = new ArrayBlockingQueue<TracingData>(10000);
+  private ArrayBlockingQueue<TracingData> tracingData = new ArrayBlockingQueue<TracingData>(100000);
 
   public OrientDBRequestTracing(OrientDBMetricsSettings.ClusterMetricsSettings.DistributedTracing requestTracing,
       String directory) {
@@ -68,6 +69,16 @@ public class OrientDBRequestTracing extends Thread implements ODistributedLifecy
   }
 
   @Override
+  public void onMessagePartitionCalculated(ODistributedRequest request, Set<Integer> involvedWorkerQueues) {
+
+    if (involvedWorkerQueues != null && involvedWorkerQueues.size() > 0) {
+      TracingData data = requests.get(request.getId());
+      data.setInvolvedQueues(involvedWorkerQueues);
+    }
+
+  }
+
+  @Override
   public void onMessageProcessEnd(ODistributedRequest iRequest, Object responsePayload) {
     TracingData data = requests.remove(iRequest.getId());
 
@@ -100,7 +111,8 @@ public class OrientDBRequestTracing extends Thread implements ODistributedLifecy
       }
       writer = new CSVWriter(new FileWriter(f));
       if (!exists) {
-        writer.writeNext(("id,nodeSource,database,task,queueTime,executionTime,debug").split(DEFAULT_SEPARATOR));
+        writer.writeNext(("id,nodeSource,database,receivedAt,task,queueTime,executionTime,partitions,debug").split(DEFAULT_SEPARATOR));
+        writer.flush();
       }
       do {
         try {
@@ -113,10 +125,12 @@ public class OrientDBRequestTracing extends Thread implements ODistributedLifecy
         values.add(data.getMessageId());
         values.add(data.getNodeSource());
         values.add(data.getDatabaseName());
+        values.add(data.getReceivedAt());
         values.add(data.getTaskName());
         values.add(data.getStartedAt() - data.getReceivedAt());
         values.add(data.getEndedAt() - data.getStartedAt());
-        values.add(formatPayload(data.getRemoteTask()));
+        values.add(formatPayload(data.getRemoteTask(), data.getInvolvedQueues()));
+
         report(writer, values);
       } while (data != null);
     } catch (IOException e) {
@@ -133,30 +147,31 @@ public class OrientDBRequestTracing extends Thread implements ODistributedLifecy
     }
   }
 
-  private String formatPayload(ORemoteTask remoteTask) {
+  private String formatPayload(ORemoteTask remoteTask, Set<Integer> partitions) {
 
     if (remoteTask instanceof OWaitPartitionsReadyTask) {
-      return formatPayload(((OWaitPartitionsReadyTask) remoteTask).getInternal());
+      return formatPayload(((OWaitPartitionsReadyTask) remoteTask).getInternal(), partitions);
     }
     if (remoteTask instanceof OTransactionPhase1Task) {
       OTransactionPhase1Task t = (OTransactionPhase1Task) remoteTask;
-      return format(t);
+      return format(t, partitions);
     }
 
     if (remoteTask instanceof OTransactionPhase2Task) {
       OTransactionPhase2Task t = (OTransactionPhase2Task) remoteTask;
-      return format(t);
+      return format(t, partitions);
     }
 
     return remoteTask.getClass().getSimpleName();
   }
 
-  private String format(OTransactionPhase2Task task) {
-    return String.format("OTransactionPhase2Task{ phase1Id: %d, retryCount: %d}", task.getTransactionId().getMessageId(),
-        task.getRetryCount());
+  private String format(OTransactionPhase2Task task, Set<Integer> partitions) {
+    return String
+        .format("OTransactionPhase2Task{ phase1Id: %d, retryCount: %d , partitions: %s }", task.getTransactionId().getMessageId(),
+            task.getRetryCount(), partitions);
   }
 
-  private String format(OTransactionPhase1Task task) {
+  private String format(OTransactionPhase1Task task, Set<Integer> partitions) {
     long created = 0;
     long updated = 0;
     long deleted = 0;
@@ -190,8 +205,8 @@ public class OrientDBRequestTracing extends Thread implements ODistributedLifecy
     }
 
     return String
-        .format("OTransactionPhase1Task{ retry: %d, created: %d, updated: %d, deleted:%d }", task.getRetryCount(), created, updated,
-            deleted);
+        .format("OTransactionPhase1Task{ retry: %d, created: %d, updated: %d, deleted:%d , partitions: %s }", task.getRetryCount(),
+            created, updated, deleted, partitions);
   }
 
   private String fromatResponse(Object response) {

@@ -2,17 +2,21 @@ package com.orientechnologies.agent.services.metrics.cluster;
 
 import com.orientechnologies.orient.server.distributed.task.ORemoteTask;
 
+import java.util.HashSet;
+import java.util.Set;
+
 public class TracingData {
 
-  private       long        messageId;
-  private       String      nodeSource;
-  private final String      databaseName;
-  private final String      taskName;
-  private       Long        receivedAt;
-  private       Long        startedAt;
-  private       Long        endedAt;
-  private       Object      response;
-  private       ORemoteTask remoteTask;
+  private       long         messageId;
+  private       String       nodeSource;
+  private final String       databaseName;
+  private final String       taskName;
+  private       Long         receivedAt;
+  private       Long         startedAt;
+  private       Long         endedAt;
+  private       Object       response;
+  private       ORemoteTask  remoteTask;
+  private       Set<Integer> involvedQueues = new HashSet<>();
 
   public TracingData(long messageId, String nodeSource, String databaseName, String taskName, Long receivedAt) {
     this.messageId = messageId;
@@ -77,5 +81,13 @@ public class TracingData {
 
   public Object getResponse() {
     return response;
+  }
+
+  public void setInvolvedQueues(Set<Integer> involvedWorkerQueues) {
+    this.involvedQueues = involvedWorkerQueues;
+  }
+
+  public Set<Integer> getInvolvedQueues() {
+    return involvedQueues;
   }
 }
