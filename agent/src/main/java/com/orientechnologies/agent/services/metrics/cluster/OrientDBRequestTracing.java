@@ -107,7 +107,7 @@ public class OrientDBRequestTracing extends Thread implements ODistributedLifecy
 
       boolean exists = f.exists();
       if (exists) {
-        f.delete()
+        f.delete();
       }
       f.createNewFile();
       writer = new CSVWriter(new FileWriter(f));
