@@ -63,7 +63,7 @@ public class OrientDBRequestTracing extends Thread implements ODistributedLifecy
 
   @Override
   public void onMessageReceived(ODistributedRequest request) {
-    requests.put(request.getId(),
+    requests.putIfAbsent(request.getId(),
         new TracingData(request.getId().getMessageId(), request.getTask().getNodeSource(), request.getDatabaseName(),
             request.getTask().getName(), System.currentTimeMillis()));
   }
@@ -107,13 +107,12 @@ public class OrientDBRequestTracing extends Thread implements ODistributedLifecy
 
       boolean exists = f.exists();
       if (exists) {
-        f.delete();
+        f.delete()
       }
       f.createNewFile();
       writer = new CSVWriter(new FileWriter(f));
       if (!exists) {
-        writer.writeNext(
-            ("id,nodeSource,database,receivedAt,task,queueTime,executionTime,partitions,debug").split(DEFAULT_SEPARATOR));
+        writer.writeNext(("id,nodeSource,database,receivedAt,task,queueTime,executionTime,partitions,debug").split(DEFAULT_SEPARATOR));
         writer.flush();
       }
       do {
