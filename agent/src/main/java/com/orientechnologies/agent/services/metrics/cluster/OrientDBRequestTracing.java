@@ -79,6 +79,24 @@ public class OrientDBRequestTracing extends Thread implements ODistributedLifecy
   }
 
   @Override
+  public void onMessageBeforeLocks(ODistributedRequestId request) {
+
+    TracingData data = requests.get(request);
+    if (data != null) {
+      data.setStartLock(System.currentTimeMillis());
+    }
+
+  }
+
+  @Override
+  public void onMessageAfterLocks(ODistributedRequestId request) {
+    TracingData data = requests.get(request);
+    if (data != null) {
+      data.setEndLock(System.currentTimeMillis());
+    }
+  }
+
+  @Override
   public void onMessageProcessEnd(ODistributedRequest iRequest, Object responsePayload) {
     TracingData data = requests.remove(iRequest.getId());
 
@@ -112,7 +130,8 @@ public class OrientDBRequestTracing extends Thread implements ODistributedLifecy
       f.createNewFile();
       writer = new CSVWriter(new FileWriter(f));
       if (!exists) {
-        writer.writeNext(("id,nodeSource,database,receivedAt,task,queueTime,executionTime,partitions,debug").split(DEFAULT_SEPARATOR));
+        writer.writeNext(
+            ("id,nodeSource,database,receivedAt,task,queueTime,executionTime,lockTime,partitions,debug").split(DEFAULT_SEPARATOR));
         writer.flush();
       }
       do {
@@ -130,6 +149,7 @@ public class OrientDBRequestTracing extends Thread implements ODistributedLifecy
         values.add(data.getTaskName());
         values.add(data.getStartedAt() - data.getReceivedAt());
         values.add(data.getEndedAt() - data.getStartedAt());
+        values.add(data.getEndLock() - data.getStartLock());
         values.add(formatPayload(data.getRemoteTask(), data.getInvolvedQueues()));
 
         report(writer, values);

@@ -14,6 +14,8 @@ public class TracingData {
   private       Long         receivedAt;
   private       Long         startedAt;
   private       Long         endedAt;
+  private       Long         startLock      = 0l;
+  private       Long         endLock        = 0l;
   private       Object       response;
   private       ORemoteTask  remoteTask;
   private       Set<Integer> involvedQueues = new HashSet<>();
@@ -85,6 +87,22 @@ public class TracingData {
 
   public void setInvolvedQueues(Set<Integer> involvedWorkerQueues) {
     this.involvedQueues = involvedWorkerQueues;
+  }
+
+  public void setStartLock(Long startLock) {
+    this.startLock = startLock;
+  }
+
+  public void setEndLock(Long endLock) {
+    this.endLock = endLock;
+  }
+
+  public Long getStartLock() {
+    return startLock;
+  }
+
+  public Long getEndLock() {
+    return endLock;
   }
 
   public Set<Integer> getInvolvedQueues() {
