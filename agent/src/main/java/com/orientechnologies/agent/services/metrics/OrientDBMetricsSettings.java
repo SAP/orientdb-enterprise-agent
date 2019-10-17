@@ -43,6 +43,7 @@ public class OrientDBMetricsSettings {
     public class DistributedTracing {
       public Boolean enabled      = false;
       public Long    minExecution = 0l;
+      public Long    taskExecution = 0l;
     }
 
     public ClusterMetricsSettings() {

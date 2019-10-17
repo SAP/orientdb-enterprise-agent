@@ -4,12 +4,14 @@ import com.opencsv.CSVWriter;
 import com.orientechnologies.agent.services.metrics.OrientDBMetricsSettings;
 import com.orientechnologies.orient.client.remote.message.tx.ORecordOperationRequest;
 import com.orientechnologies.orient.core.db.record.ORecordOperation;
+import com.orientechnologies.orient.core.tx.OTransactionInternal;
 import com.orientechnologies.orient.server.distributed.ODistributedLifecycleListener;
 import com.orientechnologies.orient.server.distributed.ODistributedRequest;
 import com.orientechnologies.orient.server.distributed.ODistributedRequestId;
 import com.orientechnologies.orient.server.distributed.ODistributedServerManager;
 import com.orientechnologies.orient.server.distributed.impl.OWaitPartitionsReadyTask;
 import com.orientechnologies.orient.server.distributed.impl.task.OTransactionPhase1Task;
+import com.orientechnologies.orient.server.distributed.impl.task.OTransactionPhase1TaskResult;
 import com.orientechnologies.orient.server.distributed.impl.task.OTransactionPhase2Task;
 import com.orientechnologies.orient.server.distributed.task.ORemoteTask;
 
@@ -17,11 +19,10 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 public class OrientDBRequestTracing extends Thread implements ODistributedLifecycleListener {
 
@@ -79,24 +80,6 @@ public class OrientDBRequestTracing extends Thread implements ODistributedLifecy
   }
 
   @Override
-  public void onMessageBeforeLocks(ODistributedRequestId request) {
-
-    TracingData data = requests.get(request);
-    if (data != null) {
-      data.setStartLock(System.currentTimeMillis());
-    }
-
-  }
-
-  @Override
-  public void onMessageAfterLocks(ODistributedRequestId request) {
-    TracingData data = requests.get(request);
-    if (data != null) {
-      data.setEndLock(System.currentTimeMillis());
-    }
-  }
-
-  @Override
   public void onMessageProcessEnd(ODistributedRequest iRequest, Object responsePayload) {
     TracingData data = requests.remove(iRequest.getId());
 
@@ -105,12 +88,33 @@ public class OrientDBRequestTracing extends Thread implements ODistributedLifecy
       data.setRemoteTask(iRequest.getTask());
       data.setResponse(responsePayload);
 
-      long end = data.getEndedAt() - data.getReceivedAt();
+      long totalTime = data.getEndedAt() - data.getReceivedAt();
+      long taskExecution = data.getEndedAt() - data.getStartedAt();
 
-      if (end >= requestTracing.minExecution) {
-
+      if (totalTime >= requestTracing.minExecution && taskExecution >= requestTracing.taskExecution) {
         tracingData.offer(data);
+      }
+    }
+  }
 
+  @Override
+  public void onMessageBeforeOp(String op, ODistributedRequestId requestId) {
+
+    TracingData data = requests.get(requestId);
+    if (data != null) {
+      data.getOpTimings().put(op, new TracingTiming(System.currentTimeMillis()));
+    }
+
+  }
+
+  @Override
+  public void onMessageAfterOp(String op, ODistributedRequestId requestId) {
+
+    TracingData data = requests.get(requestId);
+    if (data != null) {
+      TracingTiming timing = data.getOpTimings().get(op);
+      if (timing != null) {
+        timing.setEnd(System.currentTimeMillis());
       }
     }
   }
@@ -131,7 +135,7 @@ public class OrientDBRequestTracing extends Thread implements ODistributedLifecy
       writer = new CSVWriter(new FileWriter(f));
       if (!exists) {
         writer.writeNext(
-            ("id,nodeSource,database,receivedAt,task,queueTime,executionTime,lockTime,partitions,debug").split(DEFAULT_SEPARATOR));
+            ("id,nodeSource,database,receivedAt,task,queueTime,executionTime,partitions,timing,debug").split(DEFAULT_SEPARATOR));
         writer.flush();
       }
       do {
@@ -149,9 +153,9 @@ public class OrientDBRequestTracing extends Thread implements ODistributedLifecy
         values.add(data.getTaskName());
         values.add(data.getStartedAt() - data.getReceivedAt());
         values.add(data.getEndedAt() - data.getStartedAt());
-        values.add(data.getEndLock() - data.getStartLock());
-        values.add(formatPayload(data.getRemoteTask(), data.getInvolvedQueues()));
-
+        values.add(data.getOpTimings().entrySet().stream()
+            .collect(Collectors.toMap(e -> e.getKey(), e -> (e.getValue().getEnd() - e.getValue().getStart()))));
+        values.add(formatPayload(data.getRemoteTask(), data.getResponse(), data.getPayload(), data.getInvolvedQueues()));
         report(writer, values);
       } while (data != null);
     } catch (IOException e) {
@@ -168,31 +172,37 @@ public class OrientDBRequestTracing extends Thread implements ODistributedLifecy
     }
   }
 
-  private String formatPayload(ORemoteTask remoteTask, Set<Integer> partitions) {
+  private String formatPayload(ORemoteTask remoteTask, Object response, Object content, Set<Integer> partitions) {
 
     if (remoteTask instanceof OWaitPartitionsReadyTask) {
-      return formatPayload(((OWaitPartitionsReadyTask) remoteTask).getInternal(), partitions);
+      return formatPayload(((OWaitPartitionsReadyTask) remoteTask).getInternal(), response, content, partitions);
     }
     if (remoteTask instanceof OTransactionPhase1Task) {
       OTransactionPhase1Task t = (OTransactionPhase1Task) remoteTask;
-      return format(t, partitions);
+      return format(t, response, content, partitions);
     }
 
     if (remoteTask instanceof OTransactionPhase2Task) {
       OTransactionPhase2Task t = (OTransactionPhase2Task) remoteTask;
-      return format(t, partitions);
+      return format(t, response, content, partitions);
     }
 
     return remoteTask.getClass().getSimpleName();
   }
 
-  private String format(OTransactionPhase2Task task, Set<Integer> partitions) {
-    return String
-        .format("OTransactionPhase2Task{ phase1Id: %d, retryCount: %d , partitions: %s }", task.getTransactionId().getMessageId(),
-            task.getRetryCount(), partitions);
+  private String format(OTransactionPhase2Task task, Object response, Object content, Set<Integer> partitions) {
+
+    Map<String, Byte> records = new HashMap<>();
+
+    if (content instanceof OTransactionInternal) {
+      OTransactionInternal tx = (OTransactionInternal) content;
+      records = tx.getRecordOperations().stream().collect(Collectors.toMap(e -> e.record.getIdentity().toString(), e -> e.type));
+    }
+    return String.format("OTransactionPhase2Task{ phase1Id: %d, retryCount: %d ,records: %s, partitions: %s, response: %s }",
+        task.getTransactionId().getMessageId(), task.getRetryCount(), records, partitions, response);
   }
 
-  private String format(OTransactionPhase1Task task, Set<Integer> partitions) {
+  private String format(OTransactionPhase1Task task, Object response, Object content, Set<Integer> partitions) {
     long created = 0;
     long updated = 0;
     long deleted = 0;
@@ -225,9 +235,17 @@ public class OrientDBRequestTracing extends Thread implements ODistributedLifecy
 
     }
 
+    String resp;
+
+    if (response instanceof OTransactionPhase1TaskResult) {
+      resp = "" + ((OTransactionPhase1TaskResult) response).getResultPayload().getResponseType();
+    } else {
+      resp = "" + response;
+    }
+
     return String
-        .format("OTransactionPhase1Task{ retry: %d, created: %d, updated: %d, deleted:%d , partitions: %s }", task.getRetryCount(),
-            created, updated, deleted, partitions);
+        .format("OTransactionPhase1Task{ retry: %d, created: %d, updated: %d, deleted:%d , partitions: %s, response : %s }",
+            task.getRetryCount(), created, updated, deleted, partitions, resp);
   }
 
   private String fromatResponse(Object response) {
@@ -239,6 +257,15 @@ public class OrientDBRequestTracing extends Thread implements ODistributedLifecy
     TracingData data = requests.get(message.getId());
     if (data != null) {
       data.setStartedAt(System.currentTimeMillis());
+    }
+  }
+
+  @Override
+  public void onMessageCurrentPayload(ODistributedRequestId requestId, Object responsePayload) {
+
+    TracingData data = requests.get(requestId);
+    if (data != null) {
+      data.setPayload(responsePayload);
     }
   }
 

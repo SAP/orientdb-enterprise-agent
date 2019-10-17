@@ -2,23 +2,27 @@ package com.orientechnologies.agent.services.metrics.cluster;
 
 import com.orientechnologies.orient.server.distributed.task.ORemoteTask;
 
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 
 public class TracingData {
 
-  private       long         messageId;
-  private       String       nodeSource;
-  private final String       databaseName;
-  private final String       taskName;
-  private       Long         receivedAt;
-  private       Long         startedAt;
-  private       Long         endedAt;
-  private       Long         startLock      = 0l;
-  private       Long         endLock        = 0l;
-  private       Object       response;
-  private       ORemoteTask  remoteTask;
-  private       Set<Integer> involvedQueues = new HashSet<>();
+  private       long   messageId;
+  private       String nodeSource;
+  private final String databaseName;
+  private final String taskName;
+  private       Long   receivedAt;
+  private       Long   startedAt;
+  private       Long   endedAt;
+
+  private Map<String, TracingTiming> opTimings = new HashMap<>();
+
+  private Object       response;
+  private Object       payload;
+  private ORemoteTask  remoteTask;
+  private Set<Integer> involvedQueues = new HashSet<>();
 
   public TracingData(long messageId, String nodeSource, String databaseName, String taskName, Long receivedAt) {
     this.messageId = messageId;
@@ -26,15 +30,10 @@ public class TracingData {
     this.databaseName = databaseName;
     this.taskName = taskName;
     this.receivedAt = receivedAt;
-
   }
 
   public Long getReceivedAt() {
     return receivedAt;
-  }
-
-  public void setReceivedAt(Long receivedAt) {
-    this.receivedAt = receivedAt;
   }
 
   public Long getStartedAt() {
@@ -89,23 +88,19 @@ public class TracingData {
     this.involvedQueues = involvedWorkerQueues;
   }
 
-  public void setStartLock(Long startLock) {
-    this.startLock = startLock;
-  }
-
-  public void setEndLock(Long endLock) {
-    this.endLock = endLock;
-  }
-
-  public Long getStartLock() {
-    return startLock;
-  }
-
-  public Long getEndLock() {
-    return endLock;
-  }
-
   public Set<Integer> getInvolvedQueues() {
     return involvedQueues;
+  }
+
+  public Map<String, TracingTiming> getOpTimings() {
+    return opTimings;
+  }
+
+  public void setPayload(Object payload) {
+    this.payload = payload;
+  }
+
+  public Object getPayload() {
+    return payload;
   }
 }
