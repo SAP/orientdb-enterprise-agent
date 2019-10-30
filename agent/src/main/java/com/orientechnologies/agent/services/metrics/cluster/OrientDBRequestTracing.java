@@ -9,6 +9,7 @@ import com.orientechnologies.orient.server.distributed.ODistributedLifecycleList
 import com.orientechnologies.orient.server.distributed.ODistributedRequest;
 import com.orientechnologies.orient.server.distributed.ODistributedRequestId;
 import com.orientechnologies.orient.server.distributed.ODistributedServerManager;
+import com.orientechnologies.orient.server.distributed.impl.ONewDistributedTxContextImpl;
 import com.orientechnologies.orient.server.distributed.impl.OWaitPartitionsReadyTask;
 import com.orientechnologies.orient.server.distributed.impl.task.OTransactionPhase1Task;
 import com.orientechnologies.orient.server.distributed.impl.task.OTransactionPhase1TaskResult;
@@ -155,7 +156,8 @@ public class OrientDBRequestTracing extends Thread implements ODistributedLifecy
         values.add(data.getEndedAt() - data.getStartedAt());
         values.add(data.getOpTimings().entrySet().stream()
             .collect(Collectors.toMap(e -> e.getKey(), e -> (e.getValue().getEnd() - e.getValue().getStart()))));
-        values.add(formatPayload(data.getRemoteTask(), data.getResponse(), data.getPayload(), data.getInvolvedQueues()));
+        values.add(formatPayload(data.getEndedAt(), data.getRemoteTask(), data.getResponse(), data.getPayload(),
+            data.getInvolvedQueues()));
         report(writer, values);
       } while (data != null);
     } catch (IOException e) {
@@ -172,10 +174,10 @@ public class OrientDBRequestTracing extends Thread implements ODistributedLifecy
     }
   }
 
-  private String formatPayload(ORemoteTask remoteTask, Object response, Object content, Set<Integer> partitions) {
+  private String formatPayload(Long endedAt, ORemoteTask remoteTask, Object response, Object content, Set<Integer> partitions) {
 
     if (remoteTask instanceof OWaitPartitionsReadyTask) {
-      return formatPayload(((OWaitPartitionsReadyTask) remoteTask).getInternal(), response, content, partitions);
+      return formatPayload(endedAt, ((OWaitPartitionsReadyTask) remoteTask).getInternal(), response, content, partitions);
     }
     if (remoteTask instanceof OTransactionPhase1Task) {
       OTransactionPhase1Task t = (OTransactionPhase1Task) remoteTask;
@@ -184,22 +186,25 @@ public class OrientDBRequestTracing extends Thread implements ODistributedLifecy
 
     if (remoteTask instanceof OTransactionPhase2Task) {
       OTransactionPhase2Task t = (OTransactionPhase2Task) remoteTask;
-      return format(t, response, content, partitions);
+      return format(endedAt, t, response, content, partitions);
     }
 
     return remoteTask.getClass().getSimpleName();
   }
 
-  private String format(OTransactionPhase2Task task, Object response, Object content, Set<Integer> partitions) {
+  private String format(Long endedAt, OTransactionPhase2Task task, Object response, Object content, Set<Integer> partitions) {
 
     Map<String, Byte> records = new HashMap<>();
 
-    if (content instanceof OTransactionInternal) {
-      OTransactionInternal tx = (OTransactionInternal) content;
+    Long totalTime = 0l;
+    if (content instanceof ONewDistributedTxContextImpl) {
+      OTransactionInternal tx = ((ONewDistributedTxContextImpl) content).getTransaction();
+      totalTime = endedAt - ((ONewDistributedTxContextImpl) content).getStartedOn();
       records = tx.getRecordOperations().stream().collect(Collectors.toMap(e -> e.record.getIdentity().toString(), e -> e.type));
     }
-    return String.format("OTransactionPhase2Task{ phase1Id: %d, retryCount: %d ,records: %s, partitions: %s, response: %s }",
-        task.getTransactionId().getMessageId(), task.getRetryCount(), records, partitions, response);
+    return String
+        .format("OTransactionPhase2Task{ totalTime:%d, phase1Id: %d, retryCount: %d ,records: %s, partitions: %s, response: %s }",
+            totalTime, task.getTransactionId().getMessageId(), task.getRetryCount(), records, partitions, response);
   }
 
   private String format(OTransactionPhase1Task task, Object response, Object content, Set<Integer> partitions) {
@@ -255,6 +260,7 @@ public class OrientDBRequestTracing extends Thread implements ODistributedLifecy
   @Override
   public void onMessageProcessStart(ODistributedRequest message) {
     TracingData data = requests.get(message.getId());
+
     if (data != null) {
       data.setStartedAt(System.currentTimeMillis());
     }
