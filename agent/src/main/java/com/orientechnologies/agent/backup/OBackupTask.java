@@ -1,18 +1,18 @@
 /*
  * Copyright 2015 OrientDB LTD (info(at)orientdb.com)
- *   
+ *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
  *   You may obtain a copy of the License at
- *   
+ *
  *        http://www.apache.org/licenses/LICENSE-2.0
- *   
+ *
  *   Unless required by applicable law or agreed to in writing, software
  *   distributed under the License is distributed on an "AS IS" BASIS,
  *   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *   See the License for the specific language governing permissions and
  *   limitations under the License.
- *   
+ *
  *   For more information: http://www.orientdb.com
  */
 
@@ -48,31 +48,26 @@ public class OBackupTask implements OBackupListener {
     if (strategy.isEnabled()) {
       Date nextExecution = strategy.scheduleNextExecution(this);
 
-      task = new TimerTask() {
-        @Override
-        public void run() {
-          try {
-            strategy.doBackup(OBackupTask.this);
-          } catch (IOException e) {
-            e.printStackTrace();
-          }
+      task = Orient.instance().scheduleTask(() -> {
+        try {
+          strategy.doBackup(OBackupTask.this);
+        } catch (IOException e) {
+          e.printStackTrace();
         }
-      };
-      Orient.instance().scheduleTask(task, nextExecution, 0);
+
+      }, nextExecution, 0);
 
       OLogManager.instance().info(this,
           "Scheduled [" + strategy.getMode() + "] task : " + strategy.getUUID() + ". Next execution will be " + nextExecution);
 
+      strategy.retainLogs()
     }
-
-    strategy.retainLogs();
-
   }
 
-
-  public ODocument mergeSecret(ODocument newCfg,ODocument oldCfg) {
-    return strategy.mergeSecret(newCfg,oldCfg);
+  public ODocument mergeSecret(ODocument newCfg, ODocument oldCfg) {
+    return strategy.mergeSecret(newCfg, oldCfg);
   }
+
   public OBackupStrategy getStrategy() {
     return strategy;
   }
