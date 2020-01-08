@@ -60,7 +60,7 @@ public class OBackupTask implements OBackupListener {
       OLogManager.instance().info(this,
           "Scheduled [" + strategy.getMode() + "] task : " + strategy.getUUID() + ". Next execution will be " + nextExecution);
 
-      strategy.retainLogs()
+      strategy.retainLogs();
     }
   }
 
