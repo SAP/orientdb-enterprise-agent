@@ -278,7 +278,7 @@ public class OrientDBRequestTracing extends Thread implements ODistributedLifecy
   private void report(CSVWriter writer, List<Object> values) {
     try {
 
-      String[] val = values.stream().map(v -> v.toString()).toArray(size -> new String[size]);
+      String[] val = values.stream().map(v -> v != null ? v.toString() : "").toArray(size -> new String[size]);
       writer.writeNext(val);
       writer.flush();
     } catch (Exception e) {
