@@ -20,6 +20,7 @@ import com.orientechnologies.orient.core.metadata.schema.OType;
 import com.orientechnologies.orient.core.record.impl.ODocument;
 import com.orientechnologies.orient.core.storage.OStorage;
 import com.orientechnologies.orient.core.storage.impl.local.OAbstractPaginatedStorage;
+import com.orientechnologies.orient.core.storage.impl.local.paginated.atomicoperations.OAtomicOperation;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.Document;
@@ -44,9 +45,9 @@ import static com.orientechnologies.lucene.OLuceneIndexFactory.LUCENE_ALGORITHM;
  */
 public class OLuceneCrossClassIndexEngine implements OLuceneIndexEngine {
 
-  private final OStorage  storage;
-  private final String    indexName;
-  private       ODocument metadata;
+  private final OStorage   storage;
+  private final String     indexName;
+  private       ODocument  metadata;
   private final AtomicLong bonsayFileId = new AtomicLong(0);
 
   public OLuceneCrossClassIndexEngine(OStorage storage, String indexName) {
@@ -69,20 +70,20 @@ public class OLuceneCrossClassIndexEngine implements OLuceneIndexEngine {
   }
 
   @Override
-  public void create(OBinarySerializer valueSerializer, boolean isAutomatic, OType[] keyTypes, boolean nullPointerSupport,
-      OBinarySerializer keySerializer, int keySize, Set<String> clustersToIndex, Map<String, String> engineProperties,
-      ODocument metadata, OEncryption encryption) {
+  public void create(OAtomicOperation atomicOperation, OBinarySerializer valueSerializer, boolean isAutomatic, OType[] keyTypes,
+      boolean nullPointerSupport, OBinarySerializer keySerializer, int keySize, Set<String> clustersToIndex,
+      Map<String, String> engineProperties, ODocument metadata, OEncryption encryption) {
     this.metadata = metadata;
 
   }
 
   @Override
-  public void delete() {
+  public void delete(OAtomicOperation atomicOperation) {
 
   }
 
   @Override
-  public void deleteWithoutLoad(String indexName) {
+  public void deleteWithoutLoad(OAtomicOperation atomicOperation, String indexName) {
 
   }
 
@@ -98,12 +99,12 @@ public class OLuceneCrossClassIndexEngine implements OLuceneIndexEngine {
   }
 
   @Override
-  public boolean remove(Object key) {
+  public boolean remove(OAtomicOperation atomicOperation, Object key) {
     return false;
   }
 
   @Override
-  public void clear() {
+  public void clear(OAtomicOperation atomicOperation) {
 
   }
 
@@ -122,13 +123,9 @@ public class OLuceneCrossClassIndexEngine implements OLuceneIndexEngine {
     final List<String> includes = Optional.ofNullable(metadata.<List<String>>getProperty("includes"))
         .orElse(Collections.emptyList());
 
-    final Collection<? extends OIndex> indexes = ODatabaseRecordThreadLocal.instance().get().getMetadata()
-        .getIndexManager()
-        .getIndexes()
-        .stream()
-        .filter(i -> !excludes.contains(i.getName()))
-        .filter(i -> includes.isEmpty() || includes.contains(i.getName()))
-        .collect(Collectors.toList());
+    final Collection<? extends OIndex> indexes = ODatabaseRecordThreadLocal.instance().get().getMetadata().getIndexManager()
+        .getIndexes().stream().filter(i -> !excludes.contains(i.getName()))
+        .filter(i -> includes.isEmpty() || includes.contains(i.getName())).collect(Collectors.toList());
 
     final OLucenePerFieldAnalyzerWrapper globalAnalyzer = new OLucenePerFieldAnalyzerWrapper(new StandardAnalyzer());
 
@@ -140,8 +137,8 @@ public class OLuceneCrossClassIndexEngine implements OLuceneIndexEngine {
     try {
       for (OIndex index : indexes) {
 
-        if (index.getAlgorithm().equalsIgnoreCase(LUCENE_ALGORITHM) &&
-            index.getType().equalsIgnoreCase(OClass.INDEX_TYPE.FULLTEXT.toString())) {
+        if (index.getAlgorithm().equalsIgnoreCase(LUCENE_ALGORITHM) && index.getType()
+            .equalsIgnoreCase(OClass.INDEX_TYPE.FULLTEXT.toString())) {
 
           final OIndexDefinition definition = index.getDefinition();
           final String className = definition.getClassName();
@@ -170,23 +167,15 @@ public class OLuceneCrossClassIndexEngine implements OLuceneIndexEngine {
 
       IndexSearcher searcher = new IndexSearcher(indexReader);
 
-      Map<String, Float> boost = Optional.ofNullable(metadata.<Map<String, Float>>getProperty("boost"))
-          .orElse(new HashMap<>());
+      Map<String, Float> boost = Optional.ofNullable(metadata.<Map<String, Float>>getProperty("boost")).orElse(new HashMap<>());
 
-      OLuceneMultiFieldQueryParser p = new OLuceneMultiFieldQueryParser(types,
-          globalFields.toArray(new String[] {}),
-          globalAnalyzer,
-          boost);
+      OLuceneMultiFieldQueryParser p = new OLuceneMultiFieldQueryParser(types, globalFields.toArray(new String[] {}),
+          globalAnalyzer, boost);
 
-      p.setAllowLeadingWildcard(
-          Optional.ofNullable(metadata.<Boolean>getProperty("allowLeadingWildcard"))
-              .orElse(false));
+      p.setAllowLeadingWildcard(Optional.ofNullable(metadata.<Boolean>getProperty("allowLeadingWildcard")).orElse(false));
 
+      p.setSplitOnWhitespace(Optional.ofNullable(metadata.<Boolean>getProperty("splitOnWhitespace")).orElse(true));
 
-      p.setSplitOnWhitespace(
-          Optional.ofNullable(metadata.<Boolean>getProperty("splitOnWhitespace")).orElse(true));
-
-      
       Object params = keyAndMeta.key.getKeys().get(0);
 
       Query query = p.parse(params.toString());
@@ -205,17 +194,17 @@ public class OLuceneCrossClassIndexEngine implements OLuceneIndexEngine {
   }
 
   @Override
-  public void put(Object key, Object value) {
+  public void put(OAtomicOperation atomicOperation, Object key, Object value) {
 
   }
 
   @Override
-  public void update(Object key, OIndexKeyUpdater<Object> updater) {
-    put(key, updater.update(null, bonsayFileId).getValue());
+  public void update(OAtomicOperation atomicOperation, Object key, OIndexKeyUpdater<Object> updater) {
+    put(atomicOperation, key, updater.update(null, bonsayFileId).getValue());
   }
 
   @Override
-  public boolean validatedPut(Object key, ORID value, Validator<Object, ORID> validator) {
+  public boolean validatedPut(OAtomicOperation atomicOperation, Object key, ORID value, Validator<Object, ORID> validator) {
     return false;
   }
 
@@ -242,8 +231,7 @@ public class OLuceneCrossClassIndexEngine implements OLuceneIndexEngine {
   }
 
   @Override
-  public OIndexCursor iterateEntriesMinor(Object toKey, boolean isInclusive, boolean ascSortOrder,
-      ValuesTransformer transformer) {
+  public OIndexCursor iterateEntriesMinor(Object toKey, boolean isInclusive, boolean ascSortOrder, ValuesTransformer transformer) {
     return null;
   }
 
@@ -305,20 +293,17 @@ public class OLuceneCrossClassIndexEngine implements OLuceneIndexEngine {
 
       HashMap<String, TextFragment[]> frag = queryContext.getFragments();
 
-      frag.entrySet()
-          .stream()
-          .forEach(f -> {
+      frag.entrySet().stream().forEach(f -> {
 
-                TextFragment[] fragments = f.getValue();
-                StringBuilder hlField = new StringBuilder();
-                for (int j = 0; j < fragments.length; j++) {
-                  if ((fragments[j] != null) && (fragments[j].getScore() > 0)) {
-                    hlField.append(fragments[j].toString());
-                  }
-                }
-                put("$" + f.getKey() + "_hl", hlField.toString());
-              }
-          );
+        TextFragment[] fragments = f.getValue();
+        StringBuilder hlField = new StringBuilder();
+        for (int j = 0; j < fragments.length; j++) {
+          if ((fragments[j] != null) && (fragments[j].getScore() > 0)) {
+            hlField.append(fragments[j].toString());
+          }
+        }
+        put("$" + f.getKey() + "_hl", hlField.toString());
+      });
 
       put("$score", score.score);
     }});
@@ -395,8 +380,4 @@ public class OLuceneCrossClassIndexEngine implements OLuceneIndexEngine {
 
   }
 
-  @Override
-  public boolean isFrozen() {
-    return false;
-  }
 }

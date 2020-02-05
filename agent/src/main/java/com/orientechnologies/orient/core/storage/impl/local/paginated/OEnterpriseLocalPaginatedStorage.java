@@ -34,6 +34,7 @@ import com.orientechnologies.orient.core.db.record.ORecordOperation;
 import com.orientechnologies.orient.core.exception.OBackupInProgressException;
 import com.orientechnologies.orient.core.exception.OStorageException;
 import com.orientechnologies.orient.core.id.ORecordId;
+import com.orientechnologies.orient.core.index.engine.OBaseIndexEngine;
 import com.orientechnologies.orient.core.storage.ORawBuffer;
 import com.orientechnologies.orient.core.storage.ORecordCallback;
 import com.orientechnologies.orient.core.storage.OStorageOperationResult;
@@ -44,6 +45,7 @@ import com.orientechnologies.orient.core.storage.disk.OLocalPaginatedStorage;
 import com.orientechnologies.orient.core.storage.fs.OFileClassic;
 import com.orientechnologies.orient.core.storage.impl.local.OMicroTransaction;
 import com.orientechnologies.orient.core.storage.impl.local.OStorageConfigurationSegment;
+import com.orientechnologies.orient.core.storage.impl.local.paginated.atomicoperations.OAtomicOperation;
 import com.orientechnologies.orient.core.storage.impl.local.paginated.base.ODurablePage;
 import com.orientechnologies.orient.core.storage.impl.local.paginated.wal.OLogSequenceNumber;
 import com.orientechnologies.orient.core.storage.impl.local.paginated.wal.OWriteAheadLog;
@@ -445,7 +447,17 @@ public class OEnterpriseLocalPaginatedStorage extends OLocalPaginatedStorage {
 
       sbTreeCollectionManager.clear();
       sharedContainer.clearResources();
-      ((OClusterBasedStorageConfiguration) configuration).close();
+      OAtomicOperation atomicOperation = atomicOperationsManager.startAtomicOperation();
+      boolean rollback = false;
+      try {
+        ((OClusterBasedStorageConfiguration) configuration).close(atomicOperation);
+      } catch (RuntimeException e) {
+        rollback = true;
+        throw e;
+      } finally {
+        atomicOperationsManager.endAtomicOperation(rollback);
+      }
+
       configuration = null;
 
       final BufferedInputStream bufferedInputStream = new BufferedInputStream(inputStream);
@@ -608,14 +620,19 @@ public class OEnterpriseLocalPaginatedStorage extends OLocalPaginatedStorage {
         ((OClusterBasedStorageConfiguration) configuration).load(contextConfiguration);
       } else {
         if (Files.exists(getStoragePath().resolve("database.ocf"))) {
-          final OStorageConfigurationSegment oldConfig = new OStorageConfigurationSegment(this);
-          oldConfig.load(contextConfiguration);
 
           final OClusterBasedStorageConfiguration atomicConfiguration = new OClusterBasedStorageConfiguration(this);
-          atomicConfiguration.create(contextConfiguration, oldConfig);
+          OAtomicOperation confAtomicOperation = atomicOperationsManager.startAtomicOperation();
+          boolean confRollback = false;
+          try {
+            atomicConfiguration.create(confAtomicOperation, contextConfiguration);
+          } catch (RuntimeException e) {
+            confRollback = true;
+            throw e;
+          } finally {
+            atomicOperationsManager.endAtomicOperation(confRollback);
+          }
           configuration = atomicConfiguration;
-
-          oldConfig.close();
           Files.deleteIfExists(getStoragePath().resolve("database.ocf"));
         }
 
