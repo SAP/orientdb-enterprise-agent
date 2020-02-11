@@ -60,6 +60,7 @@ import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -72,7 +73,7 @@ public class OEnterpriseLocalPaginatedStorage extends OLocalPaginatedStorage {
   private static final String        CONF_UTF_8_ENTRY_NAME         = "database_utf8.ocf";
   private final        AtomicBoolean backupInProgress              = new AtomicBoolean(false);
 
-  private List<OEnterpriseStorageOperationListener> listeners = Collections.synchronizedList(new ArrayList<>());
+  private List<OEnterpriseStorageOperationListener> listeners = new CopyOnWriteArrayList<>();
 
 
   public OEnterpriseLocalPaginatedStorage(String name, String filePath, String mode, int id, OReadCache readCache,
