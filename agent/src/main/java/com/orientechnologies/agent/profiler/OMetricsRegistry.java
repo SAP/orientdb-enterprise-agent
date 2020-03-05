@@ -5,12 +5,17 @@ import com.orientechnologies.agent.profiler.metrics.*;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Map;
+import java.util.SortedMap;
+import java.util.function.BiFunction;
 import java.util.function.Supplier;
 
 /**
  * Created by Enrico Risa on 09/07/2018.
  */
 public interface OMetricsRegistry {
+
+
+
 
   default String name(String name, String... names) {
     return name.join(".", names);
@@ -49,6 +54,8 @@ public interface OMetricsRegistry {
   void registerAll(String prefix, OMetricSet metricSet);
 
   boolean remove(String name);
+
+  SortedMap<String,OHistogram> getHistograms(BiFunction<String,OMetric,Boolean> filter);
 
   void toJSON(OutputStream outputStream) throws IOException;
 }

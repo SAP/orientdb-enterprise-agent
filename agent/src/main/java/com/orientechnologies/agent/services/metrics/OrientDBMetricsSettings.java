@@ -21,14 +21,14 @@ public class OrientDBMetricsSettings {
 
   }
 
-  class ServerMetricsSettings {
+  public class ServerMetricsSettings {
     public Boolean enabled = false;
 
     public ServerMetricsSettings() {
     }
   }
 
-  class DatabaseMetricsSettings {
+  public class DatabaseMetricsSettings {
     public Boolean enabled = false;
 
     public DatabaseMetricsSettings() {

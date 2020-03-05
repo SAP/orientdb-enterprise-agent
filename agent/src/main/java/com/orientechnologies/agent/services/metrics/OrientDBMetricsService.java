@@ -223,4 +223,7 @@ public class OrientDBMetricsService implements OEnterpriseService {
 
   }
 
+  public OMetricsRegistry getRegistry() {
+    return registry;
+  }
 }
