@@ -25,20 +25,16 @@ public class QueryProfilerFilterTest {
 
   private OServer server;
 
-  private Integer          pageSize;
-  private OEnterpriseAgent agent;
+  private Integer                pageSize;
+  private OEnterpriseAgent       agent;
+  private OrientDBMetricsService metrics;
 
   @Before
   public void init() throws Exception {
 
     server = OServer.startFromClasspathConfig("orientdb-server-config.xml");
-    server.getContext().create(QueryProfilerFilterTest.class.getSimpleName(), ODatabaseType.PLOCAL);
 
     agent = server.getPluginByClass(OEnterpriseAgent.class);
-  }
-
-  @Test
-  public void testFilterQueries() throws Exception {
 
     Optional<OrientDBMetricsService> serviceByClass = agent.getServiceByClass(OrientDBMetricsService.class);
 
@@ -48,8 +44,16 @@ public class QueryProfilerFilterTest {
 
     settings.database.enabled = true;
 
-    OrientDBMetricsService metrics = serviceByClass.get();
+    metrics = serviceByClass.get();
     metrics.changeSettings(settings);
+
+
+
+    server.getContext().create(QueryProfilerFilterTest.class.getSimpleName(), ODatabaseType.PLOCAL);
+  }
+
+  @Test
+  public void testFilterQueries() throws Exception {
 
     OrientDB context = new OrientDB("remote:localhost", OrientDBConfig.defaultConfig());
 

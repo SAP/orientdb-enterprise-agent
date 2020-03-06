@@ -63,11 +63,15 @@ public class OrientDBDatabasesMetrics implements OrientDBMetric, OEnterpriseStor
 
   @Override
   public void stop() {
-    server.registerDatabaseListener(this);
+    server.unRegisterDatabaseListener(this);
 
     this.storages.forEach((k, v) -> v.stop());
 
     this.queries.forEach((k, v) -> v.stop());
+
+    this.storages.clear();
+
+    this.queries.clear();
   }
 
   @Override
