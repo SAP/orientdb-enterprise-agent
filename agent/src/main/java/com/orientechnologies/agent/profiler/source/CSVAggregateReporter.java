@@ -153,7 +153,7 @@ public class CSVAggregateReporter {
       value.add(language);
       value.add(query);
       value.add(h.getCount());
-      value.add(snapshot.getMax());
+      value.add(snapshot.getMin());
       value.add(snapshot.getMean());
       value.add(snapshot.getMax());
       return value;
