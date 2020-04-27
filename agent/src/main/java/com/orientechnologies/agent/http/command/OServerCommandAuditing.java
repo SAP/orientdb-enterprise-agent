@@ -1,24 +1,26 @@
 /*
  * Copyright 2010-2013 Orient Technologies LTD (info--at--orientechnologies.com)
  * All Rights Reserved. Commercial License.
- * 
+ *
  * NOTICE:  All information contained herein is, and remains the property of
  * Orient Technologies LTD and its suppliers, if any.  The intellectual and
  * technical concepts contained herein are proprietary to
  * Orient Technologies LTD and its suppliers and may be covered by United
  * Kingdom and Foreign Patents, patents in process, and are protected by trade
  * secret or copyright law.
- * 
+ *
  * Dissemination of this information or reproduction of this material
  * is strictly forbidden unless prior written permission is obtained
  * from Orient Technologies LTD.
- * 
+ *
  * For more information: http://www.orientechnologies.com
  */
 package com.orientechnologies.agent.http.command;
 
 import com.orientechnologies.orient.core.db.document.ODatabaseDocument;
 import com.orientechnologies.orient.core.record.impl.ODocument;
+import com.orientechnologies.orient.core.sql.executor.OResult;
+import com.orientechnologies.orient.core.sql.executor.OResultSet;
 import com.orientechnologies.orient.server.OServer;
 import com.orientechnologies.orient.server.network.protocol.http.OHttpRequest;
 import com.orientechnologies.orient.server.network.protocol.http.OHttpResponse;
@@ -28,10 +30,11 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class OServerCommandAuditing extends OServerCommandDistributedScope {
   private static final String[] NAMES = { "GET|auditing/*", "POST|auditing/*" };
-  private OServer               server;
+  private              OServer  server;
 
   public OServerCommandAuditing(OServer server) {
     super("server.profiler");
@@ -71,11 +74,13 @@ public class OServerCommandAuditing extends OServerCommandDistributedScope {
 
     ODocument params = new ODocument().fromJSON(iRequest.content);
 
-    Collection<ODocument> documents = new ArrayList<ODocument>();
-
     String query = buildQuery(params);
-
-    documents = (Collection<ODocument>) server.getSystemDatabase().execute(null, query, params.toMap());
+    
+    Collection<OResult> documents = server.getSystemDatabase().executeWithDB((session) -> {
+      try (OResultSet results = session.query(query, params.toMap())) {
+        return results.stream().collect(Collectors.toList());
+      }
+    });
 
     iResponse.writeResult(documents);
   }
@@ -158,24 +163,25 @@ public class OServerCommandAuditing extends OServerCommandDistributedScope {
     iRequest.databaseName = db;
 
     ODatabaseDocument dbDoc = null;
-    
+
     try {
       dbDoc = getProfiledDatabaseInstance(iRequest);
 
       if (server.getSecurity().getAuditing() != null)
         server.getSecurity().getAuditing().changeConfig(db, config);
-  
+
       iResponse.send(OHttpUtils.STATUS_OK_CODE, "OK", OHttpUtils.CONTENT_JSON, config.toJSON("prettyPrint"), null);
     } finally {
-     	if (dbDoc != null) dbDoc.close();
+      if (dbDoc != null)
+        dbDoc.close();
     }
   }
 
   private void doGet(OHttpRequest iRequest, OHttpResponse iResponse, String db) throws Exception {
     iRequest.databaseName = db;
-    
+
     ODatabaseDocument dbDoc = null;
-    
+
     try {
       dbDoc = getProfiledDatabaseInstance(iRequest);
 
@@ -185,11 +191,12 @@ public class OServerCommandAuditing extends OServerCommandDistributedScope {
       } else {
         config = new ODocument();
       }
-  
+
       iResponse.send(OHttpUtils.STATUS_OK_CODE, "OK", OHttpUtils.CONTENT_JSON, config.toJSON("prettyPrint"), null);
     } finally {
-     	if (dbDoc != null) dbDoc.close();
-    }  
+      if (dbDoc != null)
+        dbDoc.close();
+    }
   }
 
   @Override
