@@ -27,7 +27,7 @@
         </protocols>
         <listeners>
             <listener protocol="binary" port-range="2426"
-                      ip-address="0.0.0.0"/>
+                      ip-address="127.0.0.1"/>
         </listeners>
     </network>
     <storages>
