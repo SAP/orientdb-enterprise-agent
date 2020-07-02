@@ -32,6 +32,7 @@ import java.io.StringWriter;
  *
  * See {@link com.orientechnologies.agent.services.metrics.OrientDBMetricsCommand} for the new metrics profiler
  */
+@Deprecated
 public class OServerCommandGetProfiler extends OServerCommandAuthenticatedServerAbstract {
   private static final String[] NAMES = { "GET|profiler/*", "POST|profiler/*" };
 
