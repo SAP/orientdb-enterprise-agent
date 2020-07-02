@@ -27,6 +27,11 @@ import com.orientechnologies.orient.server.network.protocol.http.command.OServer
 
 import java.io.StringWriter;
 
+/**
+ * legacy component!
+ *
+ * See {@link com.orientechnologies.agent.services.metrics.OrientDBMetricsCommand} for the new metrics profiler
+ */
 public class OServerCommandGetProfiler extends OServerCommandAuthenticatedServerAbstract {
   private static final String[] NAMES = { "GET|profiler/*", "POST|profiler/*" };
 
