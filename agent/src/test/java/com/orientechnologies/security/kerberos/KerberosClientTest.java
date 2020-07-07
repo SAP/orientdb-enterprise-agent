@@ -1,31 +1,21 @@
 package com.orientechnologies.security.kerberos;
 
 import com.orientechnologies.security.AbstractSecurityTest;
-
 import com.orientechnologies.orient.client.remote.OServerAdmin;
-//import com.orientechnologies.orient.core.Orient;
 import com.orientechnologies.orient.core.command.script.OCommandScript;
 import com.orientechnologies.orient.core.config.OGlobalConfiguration;
 import com.orientechnologies.orient.core.db.document.ODatabaseDocumentTx;
-//import com.orientechnologies.orient.core.exception.OConfigurationException;
 import com.orientechnologies.orient.core.exception.OSecurityException;
 import com.orientechnologies.orient.core.record.impl.ODocument;
-//import com.orientechnologies.orient.core.security.OInvalidPasswordException;
 import com.orientechnologies.orient.core.sql.OCommandSQL;
-
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
-
 import java.io.IOException;
-//import java.util.ArrayList;
 import java.util.Collection;
-//import java.util.List;
-
-//import static org.junit.Assert.assertTrue;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
