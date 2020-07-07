@@ -30,7 +30,6 @@ import com.orientechnologies.orient.core.security.symmetrickey.OUserSymmetricKey
 import com.orientechnologies.orient.server.OServer;
 import com.orientechnologies.orient.server.config.OServerConfigurationManager;
 import com.orientechnologies.orient.server.config.OServerUserConfiguration;
-//import com.orientechnologies.orient.server.security.OSecurityAuthenticatorAbstract;
 import com.orientechnologies.orient.server.security.authenticator.OSystemUserAuthenticator;
 
 
