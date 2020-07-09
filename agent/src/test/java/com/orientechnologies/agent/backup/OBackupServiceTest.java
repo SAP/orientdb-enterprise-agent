@@ -163,11 +163,11 @@ public class OBackupServiceTest {
       assertNotNull(logs.field("logs"));
 
       List<ODocument> list = logs.field("logs");
-      assertEquals(18, list.size());
+      assertTrue(list.size() > 17);
 
       checkNoOp(list, OBackupLogType.BACKUP_ERROR.toString());
 
-      deleteAndCheck(uuid, list, 17, 18 - calculateToDelete(list, 17));
+      deleteAndCheck(uuid, list, 17, list.size() - calculateToDelete(list, 17));
     } finally {
       manager.removeBackup(uuid);
     }
