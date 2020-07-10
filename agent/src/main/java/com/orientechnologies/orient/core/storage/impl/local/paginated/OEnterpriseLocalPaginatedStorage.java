@@ -667,8 +667,8 @@ public class OEnterpriseLocalPaginatedStorage extends OLocalPaginatedStorage {
   }
 
   @Override
-  public List<ORecordOperation> commit(OTransactionInternal clientTx) {
-    List<ORecordOperation> operations = super.commit(clientTx);
+  protected List<ORecordOperation> commit(OTransactionInternal clientTx, boolean allocated) {
+    List<ORecordOperation> operations = super.commit(clientTx, allocated);
     listeners.forEach((l) -> l.onCommit(operations));
     return operations;
   }
