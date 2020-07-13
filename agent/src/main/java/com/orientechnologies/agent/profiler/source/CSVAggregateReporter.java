@@ -24,37 +24,37 @@ import java.util.stream.Stream;
  */
 public class CSVAggregateReporter {
 
-  private static final String                   DEFAULT_SEPARATOR = ",";
-  private final        OEnterpriseServer        server;
-  private final        MetricRegistry           registry;
-  private final        File                     directory;
-  private final        Locale                   locale;
-  private final        String                   separator;
-  private final        TimeUnit                 rateUnit;
-  private final        TimeUnit                 durationUnit;
-  private final        Clock                    clock;
-  private final        MetricFilter             filter;
-  private final        ScheduledExecutorService executor;
-  private final        boolean                  shutdownExecutorOnStop;
-  private final        CsvFileProvider          csvFileProvider;
-  private              ScheduledFuture<?>       scheduledFuture;
+  private static final String DEFAULT_SEPARATOR = ",";
+  private final OEnterpriseServer server;
+  private final MetricRegistry registry;
+  private final File directory;
+  private final Locale locale;
+  private final String separator;
+  private final TimeUnit rateUnit;
+  private final TimeUnit durationUnit;
+  private final Clock clock;
+  private final MetricFilter filter;
+  private final ScheduledExecutorService executor;
+  private final boolean shutdownExecutorOnStop;
+  private final CsvFileProvider csvFileProvider;
+  private ScheduledFuture<?> scheduledFuture;
 
   public static CSVAggregateReporter.Builder forRegistry(OEnterpriseServer server, MetricRegistry registry) {
     return new CSVAggregateReporter.Builder(server, registry);
   }
 
   public static class Builder {
-    private final MetricRegistry           registry;
-    private final OEnterpriseServer        server;
-    private       Locale                   locale;
-    private       String                   separator;
-    private       TimeUnit                 rateUnit;
-    private       TimeUnit                 durationUnit;
-    private       Clock                    clock;
-    private       MetricFilter             filter;
-    private       ScheduledExecutorService executor;
-    private       boolean                  shutdownExecutorOnStop;
-    private       CsvFileProvider          csvFileProvider;
+    private final MetricRegistry registry;
+    private final OEnterpriseServer server;
+    private Locale locale;
+    private String separator;
+    private TimeUnit rateUnit;
+    private TimeUnit durationUnit;
+    private Clock clock;
+    private MetricFilter filter;
+    private ScheduledExecutorService executor;
+    private boolean shutdownExecutorOnStop;
+    private CsvFileProvider csvFileProvider;
 
     public Builder(OEnterpriseServer server, MetricRegistry registry) {
       this.registry = registry;
@@ -80,13 +80,13 @@ public class CSVAggregateReporter {
      */
     public CSVAggregateReporter build(File directory) {
       return new CSVAggregateReporter(server, registry, directory, locale, separator, rateUnit, durationUnit, clock, filter,
-          executor, shutdownExecutorOnStop, csvFileProvider);
+              executor, shutdownExecutorOnStop, csvFileProvider);
     }
   }
 
   private CSVAggregateReporter(OEnterpriseServer server, MetricRegistry registry, File directory, Locale locale, String separator,
-      TimeUnit rateUnit, TimeUnit durationUnit, Clock clock, MetricFilter filter, ScheduledExecutorService executor,
-      boolean shutdownExecutorOnStop, CsvFileProvider csvFileProvider) {
+                               TimeUnit rateUnit, TimeUnit durationUnit, Clock clock, MetricFilter filter, ScheduledExecutorService executor,
+                               boolean shutdownExecutorOnStop, CsvFileProvider csvFileProvider) {
     this.server = server;
     this.registry = registry;
     this.directory = directory;
@@ -110,7 +110,11 @@ public class CSVAggregateReporter {
       }
     }
     this.scheduledFuture = executor.scheduleAtFixedRate(() -> {
-      report();
+      try {
+        report();
+      } catch (Exception e) {
+        OLogManager.instance().error(this, "Error generating aggregate metrics report", e);
+      }
     }, period, period, unit);
 
   }
@@ -126,13 +130,13 @@ public class CSVAggregateReporter {
 
     List<List<Object>> runningQueries = getRunningQueries();
     report(timestamp, "db.runningQueries", "queryId,sessionId,database,user,language,query,startTime,elapsedTime(millis)",
-        runningQueries);
+            runningQueries);
 
     List<List<Object>> stats = getConnections();
 
     report(timestamp, "server.network.activeSessions",
-        "connectionId,remoteAddress,database,user,totalRequests,commandInfo,commandDetail,lastCommandOn,lastCommandInfo,lastCommandDetail,lastExecutionTime,totalWorkingTime,activeQueries,connectedOn,protocol,sessionId,clientId,driver",
-        stats);
+            "connectionId,remoteAddress,database,user,totalRequests,commandInfo,commandDetail,lastCommandOn,lastCommandInfo,lastCommandDetail,lastExecutionTime,totalWorkingTime,activeQueries,connectedOn,protocol,sessionId,clientId,driver",
+            stats);
   }
 
   private List<List<Object>> getQueryStats(SortedMap<String, Histogram> histograms) {
@@ -285,14 +289,16 @@ public class CSVAggregateReporter {
           writer.writeNext(("timestamp" + DEFAULT_SEPARATOR + header).split(DEFAULT_SEPARATOR));
           for (List<Object> value : values) {
             String[] val = Stream.concat(v.stream(), value.stream()).map((s) -> s != null ? s.toString() : "-")
-                .toArray(size -> new String[size]);
+                    .toArray(size -> new String[size]);
             writer.writeNext(val);
           }
         }
 
+      } else {
+        OLogManager.instance().warn(this, "Cannot create csv file for metrics: ", name);
       }
     } catch (Exception e) {
-      OLogManager.instance().warn(this, "Error writing to {}", name, e);
+      OLogManager.instance().error(this, "Error writing to {}", e, name);
     }
   }
 }
