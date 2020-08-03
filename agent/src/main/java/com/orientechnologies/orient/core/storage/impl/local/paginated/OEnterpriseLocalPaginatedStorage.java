@@ -91,7 +91,7 @@ public class OEnterpriseLocalPaginatedStorage extends OLocalPaginatedStorage {
 
   private static final String ENCRYPTION_IV = "encryption.iv";
 
-  private List<OEnterpriseStorageOperationListener> listeners = new CopyOnWriteArrayList<>();
+  private final List<OEnterpriseStorageOperationListener> listeners = new CopyOnWriteArrayList<>();
 
   public OEnterpriseLocalPaginatedStorage(
       String name,
@@ -538,9 +538,8 @@ public class OEnterpriseLocalPaginatedStorage extends OLocalPaginatedStorage {
       OLongSerializer.INSTANCE.serialize(fileId, binaryFileId, 0);
       stream.write(binaryFileId, 0, binaryFileId.length);
 
-      for (long pageIndex = 0; pageIndex < filledUpTo; pageIndex++) {
-        final OCacheEntry cacheEntry =
-            readCache.loadForRead(fileId, pageIndex, true, writeCache, true);
+      for (int pageIndex = 0; pageIndex < filledUpTo; pageIndex++) {
+        final OCacheEntry cacheEntry = readCache.silentLoadForRead(fileId, pageIndex, writeCache, true);
         cacheEntry.acquireSharedLock();
         try {
           final OLogSequenceNumber pageLsn =
