@@ -245,7 +245,7 @@ public class OEnterpriseServerImpl implements OEnterpriseServer, OServerPlugin, 
   @Override
   public List<OResult> listQueries(Optional<Function<OClientConnection, Boolean>> filter) {
     return getConnections().stream().filter((c) -> c.getDatabase() != null && filter.map(f -> f.apply(c)).orElse(true))
-        .flatMap((c) -> c.getDatabase().getActiveQueries().entrySet().stream().map((k) -> {
+        .flatMap((c) -> new HashMap<>(c.getDatabase().getActiveQueries()).entrySet().stream().map((k) -> {
           OResultInternal internal = new OResultInternal();
           internal.setProperty("queryId", k.getKey());
           OResultSet resultSet = k.getValue();
