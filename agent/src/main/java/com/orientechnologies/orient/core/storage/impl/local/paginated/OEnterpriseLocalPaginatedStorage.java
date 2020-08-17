@@ -539,7 +539,8 @@ public class OEnterpriseLocalPaginatedStorage extends OLocalPaginatedStorage {
       stream.write(binaryFileId, 0, binaryFileId.length);
 
       for (int pageIndex = 0; pageIndex < filledUpTo; pageIndex++) {
-        final OCacheEntry cacheEntry = readCache.silentLoadForRead(fileId, pageIndex, writeCache, true);
+        final OCacheEntry cacheEntry =
+            readCache.silentLoadForRead(fileId, pageIndex, writeCache, true);
         cacheEntry.acquireSharedLock();
         try {
           final OLogSequenceNumber pageLsn =
