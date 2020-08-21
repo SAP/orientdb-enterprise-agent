@@ -29,3 +29,7 @@ In `Application Component` set our BCP component `BC-DB-ODB`.
 Then `Next` and select the correct branch e.g. `fa/rel-3.1` and patch level e.g. `000`.
 
 Copy the `ID` of the correction request to the initial comment in your PR e.g. `CR-Id: 002075125900001706292020`. After that the CWB voter will vote successfully.
+
+> Put CWB CR on "patch request", only after the "stage, promote" was successful.
+
+> run `stage` with `fa/rel-3.1` in https://prod-build10300.wdf.sap.corp/job/final-assembly/job/final-assembly-orientdb-enterprise-SP-REL-common_directshipment/
