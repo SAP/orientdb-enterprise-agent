@@ -430,6 +430,7 @@ public class OEnterpriseLocalPaginatedStorage extends OLocalPaginatedStorage {
 
       stateLock.acquireWriteLock();
       try {
+        interruptionManager.enterCriticalPath();
         for (String file : files) {
           final File ibuFile = new File(backupDirectory, file);
 
@@ -453,6 +454,7 @@ public class OEnterpriseLocalPaginatedStorage extends OLocalPaginatedStorage {
         }
       } finally {
         stateLock.releaseWriteLock();
+        interruptionManager.exitCriticalPath();
       }
     } catch (IOException e) {
       throw OException.wrapException(new OStorageException("Error during incremental backup"), e);
@@ -462,6 +464,7 @@ public class OEnterpriseLocalPaginatedStorage extends OLocalPaginatedStorage {
   private void restoreFromIncrementalBackup(final InputStream inputStream, final boolean isFull) throws IOException {
     stateLock.acquireWriteLock();
     try {
+      interruptionManager.enterCriticalPath();
       final List<String> currentFiles = new ArrayList<String>(writeCache.files().keySet());
       final Locale serverLocale = configuration.getLocaleInstance();
       final OContextConfiguration contextConfiguration = configuration.getContextConfiguration();
@@ -674,6 +677,7 @@ public class OEnterpriseLocalPaginatedStorage extends OLocalPaginatedStorage {
       makeFullCheckpoint();
     } finally {
       stateLock.releaseWriteLock();
+      interruptionManager.exitCriticalPath();
     }
   }
 
