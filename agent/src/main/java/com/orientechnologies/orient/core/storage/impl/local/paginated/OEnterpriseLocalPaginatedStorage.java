@@ -967,7 +967,6 @@ public class OEnterpriseLocalPaginatedStorage extends OLocalPaginatedStorage {
       }
 
 
-        configuration = new OClusterBasedStorageConfiguration(this);
         atomicOperationsManager.executeInsideAtomicOperation(
                 null,  this::openClusters);
 
