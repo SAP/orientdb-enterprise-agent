@@ -936,7 +936,11 @@ public class OEnterpriseLocalPaginatedStorage extends OLocalPaginatedStorage {
 
       if (OClusterBasedStorageConfiguration.exists(writeCache)) {
         configuration = new OClusterBasedStorageConfiguration(this);
-        ((OClusterBasedStorageConfiguration) configuration).load(contextConfiguration);
+
+        atomicOperationsManager.executeInsideAtomicOperation(
+                null,
+                atomicOperation -> ((OClusterBasedStorageConfiguration) configuration).load(contextConfiguration, atomicOperation));
+
       } else {
         if (Files.exists(getStoragePath().resolve("database.ocf"))) {
           final OStorageConfigurationSegment oldConfig = new OStorageConfigurationSegment(this);
@@ -956,11 +960,17 @@ public class OEnterpriseLocalPaginatedStorage extends OLocalPaginatedStorage {
 
         if (configuration == null) {
           configuration = new OClusterBasedStorageConfiguration(this);
-          ((OClusterBasedStorageConfiguration) configuration).load(contextConfiguration);
+            atomicOperationsManager.executeInsideAtomicOperation(
+                    null,
+                    atomicOperation -> ((OClusterBasedStorageConfiguration) configuration).load(contextConfiguration, atomicOperation));
         }
       }
 
-      openClusters();
+
+        configuration = new OClusterBasedStorageConfiguration(this);
+        atomicOperationsManager.executeInsideAtomicOperation(
+                null,  this::openClusters);
+
       openIndexes();
 
       makeFullCheckpoint();
