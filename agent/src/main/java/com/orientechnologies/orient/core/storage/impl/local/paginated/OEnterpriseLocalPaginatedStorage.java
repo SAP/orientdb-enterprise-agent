@@ -974,7 +974,7 @@ public class OEnterpriseLocalPaginatedStorage extends OLocalPaginatedStorage {
 
       openIndexes();
 
-      makeFullCheckpoint();
+      flushAllData();
     } finally {
       stateLock.releaseWriteLock();
       this.interruptionManager.exitCriticalPath();
@@ -1018,12 +1018,6 @@ public class OEnterpriseLocalPaginatedStorage extends OLocalPaginatedStorage {
     List<ORecordOperation> operations = super.commit(clientTx, allocated);
     listeners.forEach((l) -> l.onCommit(operations));
     return operations;
-  }
-
-  @Override
-  public void rollback(OTransactionInternal clientTx) {
-    super.rollback(clientTx);
-    listeners.forEach(OEnterpriseStorageOperationListener::onRollback);
   }
 
   private void replaceConfiguration(ZipInputStream zipInputStream) throws IOException {
