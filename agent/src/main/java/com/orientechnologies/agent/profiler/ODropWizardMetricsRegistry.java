@@ -37,16 +37,16 @@ import java.util.function.Supplier;
  */
 public class ODropWizardMetricsRegistry implements OMetricsRegistry {
 
-  private final MetricRegistry                                          registry         = new MetricRegistry();
-  private       ConcurrentMap<String, OMetric>                          metrics          = new ConcurrentHashMap<>();
-  private       ConsoleReporter                                         consoleReporter  = null;
-  private       CsvReporter                                             csvReporter      = null;
-  private       JmxReporter                                             jmxReporter      = null;
-  private       CSVAggregateReporter                                    csvAggregates    = null;
-  private       GraphiteReporter                                        graphiteReporter = null;
-  private       OEnterpriseServer                                       server;
-  private       OrientDBMetricsSettings                                 settings;
-  private       Map<Class<? extends OMetric>, Function<String, Metric>> metricFactory    = new HashMap<>();
+  private final MetricRegistry registry = new MetricRegistry();
+  private ConcurrentMap<String, OMetric> metrics = new ConcurrentHashMap<>();
+  private ConsoleReporter consoleReporter = null;
+  private CsvReporter csvReporter = null;
+  private JmxReporter jmxReporter = null;
+  private CSVAggregateReporter csvAggregates = null;
+  private GraphiteReporter graphiteReporter = null;
+  private OEnterpriseServer server;
+  private OrientDBMetricsSettings settings;
+  private Map<Class<? extends OMetric>, Function<String, Metric>> metricFactory = new HashMap<>();
 
   private transient ObjectMapper mapper;
 
@@ -65,11 +65,16 @@ public class ODropWizardMetricsRegistry implements OMetricsRegistry {
   }
 
   private void configureMapper(OrientDBMetricsSettings settings) {
-    final TimeUnit rateUnit = TimeUnit.SECONDS;
-    final TimeUnit durationUnit = TimeUnit.SECONDS;
-    final boolean showSamples = false;
-    MetricFilter filter = MetricFilter.ALL;
-    this.mapper = new ObjectMapper().registerModule(new MetricsModule(rateUnit, durationUnit, showSamples, filter));
+    try {
+      final TimeUnit rateUnit = TimeUnit.SECONDS;
+      final TimeUnit durationUnit = TimeUnit.SECONDS;
+      final boolean showSamples = false;
+      MetricFilter filter = MetricFilter.ALL;
+      this.mapper = new ObjectMapper().registerModule(new MetricsModule(rateUnit, durationUnit, showSamples, filter));
+    } catch (Exception e) {
+      OLogManager.instance().error(this, "Error configuring EE profiler mapper", e);
+    }
+
   }
 
   private TimeUnit parseTimeUnit(String value, TimeUnit defaultValue) {
@@ -81,21 +86,28 @@ public class ODropWizardMetricsRegistry implements OMetricsRegistry {
   }
 
   private void initFactories(OrientDBMetricsSettings settings) {
-    metricFactory.put(GCMetric.class, (s) -> registry.register(s, new GarbageCollectorMetricSet()));
-    metricFactory.put(ThreadsMetric.class, (s) -> registry.register(s, new CachedThreadStatesGaugeSet(10, TimeUnit.SECONDS)));
-    metricFactory.put(MemoryMetric.class, (s) -> registry.register(s, new MemoryUsageGaugeSet()));
+    try {
+      metricFactory.put(GCMetric.class, (s) -> registry.register(s, new GarbageCollectorMetricSet()));
+      metricFactory.put(ThreadsMetric.class, (s) -> registry.register(s, new CachedThreadStatesGaugeSet(10, TimeUnit.SECONDS)));
+      metricFactory.put(MemoryMetric.class, (s) -> registry.register(s, new MemoryUsageGaugeSet()));
+    } catch (Exception e) {
+      OLogManager.instance().error(this, "Error during EE profiler factory init", e);
+    }
   }
 
   private void configureProfiler(OrientDBMetricsSettings settings) {
+    try {
+      jmxReporter = configureJMXReporter(settings.reporters.jmx);
+      consoleReporter = configureConsoleReporter(settings.reporters.console);
+      csvReporter = configureCsvReporter(settings.reporters.csv);
 
-    jmxReporter = configureJMXReporter(settings.reporters.jmx);
-    consoleReporter = configureConsoleReporter(settings.reporters.console);
-    csvReporter = configureCsvReporter(settings.reporters.csv);
+      csvAggregates = configureCsvAggregatesReporter(server, settings.reporters.csv);
 
-    csvAggregates = configureCsvAggregatesReporter(server, settings.reporters.csv);
-
-    if (settings.reporters.prometheus.enabled) {
-      CollectorRegistry.defaultRegistry.register(new DropwizardExports(registry));
+      if (settings.reporters.prometheus.enabled) {
+        CollectorRegistry.defaultRegistry.register(new DropwizardExports(registry));
+      }
+    } catch (Exception e) {
+      OLogManager.instance().error(this, "Error configuring EE profiler", e);
     }
   }
 
@@ -216,7 +228,7 @@ public class ODropWizardMetricsRegistry implements OMetricsRegistry {
   @Override
   public <T> OGauge<T> gauge(String name, String description, String unitOfMeasure, Supplier<T> valueFunction) {
     return registerOrGetMetric(name,
-        (k) -> new DropWizardGauge<T>(registry.register(k, () -> valueFunction.get()), k, description, unitOfMeasure));
+            (k) -> new DropWizardGauge<T>(registry.register(k, () -> valueFunction.get()), k, description, unitOfMeasure));
   }
 
   @Override
