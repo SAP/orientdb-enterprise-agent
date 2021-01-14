@@ -12,11 +12,11 @@ import java.util.stream.Collectors;
 import org.junit.Assert;
 import org.junit.Test;
 
+// FIXME: flaky tests
 public class AuditingRetentionConfigTest extends EEBaseServerHttpTest {
 
   @Test
   public void retentionGeneral() throws Exception {
-
     String security =
         OIOUtils.readStreamAsString(
             Thread.currentThread()
