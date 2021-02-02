@@ -77,8 +77,10 @@ public class OrientDBMetricsCommand extends OServerCommandAuthenticatedServerAbs
     Set<String> databases = new HashSet<String>();
     for (ODocument m : members) {
       final Collection<String> dbs = m.field("databases");
-      for (String db : dbs) {
-        databases.add(db);
+      if (dbs != null) {
+        for (String db : dbs) {
+          databases.add(db);
+        }
       }
     }
     for (String database : databases) {
