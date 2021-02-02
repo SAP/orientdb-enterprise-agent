@@ -3,6 +3,7 @@ package com.orientechnologies.orient.server.distributed;
 import static com.orientechnologies.orient.core.config.OGlobalConfiguration.CLIENT_CONNECTION_STRATEGY;
 import static org.junit.Assert.assertEquals;
 
+import com.orientechnologies.common.log.OLogManager;
 import com.orientechnologies.orient.core.config.OGlobalConfiguration;
 import com.orientechnologies.orient.core.db.ODatabaseSession;
 import com.orientechnologies.orient.core.db.ODatabaseType;
@@ -186,6 +187,283 @@ public class ConnectionStrategiesEEIT {
           remote1.open(ConnectionStrategiesEEIT.class.getSimpleName(), "admin", "admin");
       try (OResultSet res = session2.query("select count(*) as count from V")) {
         assertEquals((long) res.next().getProperty("count"), 2000l);
+      }
+      urls.add(((ODatabaseDocumentRemote) session2).getSessionMetadata().getDebugLastHost());
+      session2.close();
+    }
+
+    assertEquals(urls.stream().filter((x) -> x.contains("2424")).count(), 1);
+    assertEquals(urls.stream().filter((x) -> x.contains("2425")).count(), 1);
+    assertEquals(urls.stream().filter((x) -> x.contains("2426")).count(), 1);
+    remote1.close();
+  }
+
+  @Test
+  public void testRoundRobinShutdownWriteRestartNoWaitWrite()
+      throws InterruptedException, ClassNotFoundException, InstantiationException,
+          IllegalAccessException, IOException {
+    OrientDB remote1 =
+        new OrientDB(
+            "remote:localhost;localhost:2425;localhost:2426",
+            "root",
+            "root",
+            OrientDBConfig.builder()
+                .addConfig(CLIENT_CONNECTION_STRATEGY, "ROUND_ROBIN_CONNECT")
+                .build());
+    Set<String> urls = new HashSet<>();
+    ODatabaseSession session =
+        remote1.open(ConnectionStrategiesEEIT.class.getSimpleName(), "admin", "admin");
+    urls.add(((ODatabaseDocumentRemote) session).getSessionMetadata().getDebugLastHost());
+    session.close();
+
+    for (int i = 0; i < 10; i++) {
+      ODatabaseSession session2 =
+          remote1.open(ConnectionStrategiesEEIT.class.getSimpleName(), "admin", "admin");
+      urls.add(((ODatabaseDocumentRemote) session2).getSessionMetadata().getDebugLastHost());
+      for (int ji = 0; ji < 100; ji++) {
+        session2.save(session2.newVertex());
+      }
+      session2.close();
+    }
+
+    ODatabaseSession session1 =
+        remote1.open(ConnectionStrategiesEEIT.class.getSimpleName(), "admin", "admin");
+    urls.add(((ODatabaseDocumentRemote) session1).getSessionMetadata().getDebugLastHost());
+    session1.close();
+
+    assertEquals(urls.stream().filter((x) -> x.contains("2424")).count(), 1);
+    assertEquals(urls.stream().filter((x) -> x.contains("2425")).count(), 1);
+    assertEquals(urls.stream().filter((x) -> x.contains("2426")).count(), 1);
+
+    server1.shutdown();
+    server1.waitForShutdown();
+    urls.clear();
+
+    for (int i = 0; i < 10; i++) {
+      ODatabaseSession session2 =
+          remote1.open(ConnectionStrategiesEEIT.class.getSimpleName(), "admin", "admin");
+      urls.add(((ODatabaseDocumentRemote) session2).getSessionMetadata().getDebugLastHost());
+      for (int ji = 0; ji < 100; ji++) {
+        session2.save(session2.newVertex());
+      }
+      session2.close();
+    }
+
+    for (int i = 0; i < 2; i++) {
+      ODatabaseSession session2 =
+          remote1.open(ConnectionStrategiesEEIT.class.getSimpleName(), "admin", "admin");
+      try (OResultSet res = session2.query("select count(*) as count from V")) {
+        assertEquals((long) res.next().getProperty("count"), 2000l);
+      }
+      urls.add(((ODatabaseDocumentRemote) session2).getSessionMetadata().getDebugLastHost());
+      session2.close();
+    }
+
+    assertEquals(urls.stream().filter((x) -> x.contains("2424")).count(), 1);
+
+    Thread writer =
+        new Thread(
+            () -> {
+              for (int i = 0; i < 10; i++) {
+                while (true) {
+                  try {
+                    ODatabaseSession session2 =
+                        remote1.open(
+                            ConnectionStrategiesEEIT.class.getSimpleName(), "admin", "admin");
+                    urls.add(
+                        ((ODatabaseDocumentRemote) session2)
+                            .getSessionMetadata()
+                            .getDebugLastHost());
+                    session2.begin();
+                    for (int ji = 0; ji < 100; ji++) {
+                      session2.save(session2.newVertex());
+                    }
+                    session2.commit();
+                    session2.close();
+                    Thread.sleep(5);
+                    break;
+                  } catch (Exception e) {
+                    OLogManager.instance().warn(this, "OH NO!", e);
+                    e.printStackTrace();
+                  }
+                }
+              }
+              OLogManager.instance().warn(this, "WRITE DONE!");
+            });
+
+    writer.start();
+
+    Thread.sleep(20);
+
+    Thread start =
+        new Thread(
+            () -> {
+              try {
+                server1.startup(
+                    Thread.currentThread()
+                        .getContextClassLoader()
+                        .getResourceAsStream("orientdb-simple-dserver-config-1.xml"));
+                server1.activate();
+              } catch (Exception e) {
+                e.printStackTrace();
+              }
+            });
+    start.setDaemon(true);
+    start.start();
+
+    writer.join();
+
+    for (int i = 0; i < 1000; i++) {
+      ODatabaseSession session2 =
+          remote1.open(ConnectionStrategiesEEIT.class.getSimpleName(), "admin", "admin");
+      try (OResultSet res = session2.query("select count(*) as count from V")) {
+        assertEquals((long) res.next().getProperty("count"), 3000l);
+      }
+      urls.add(((ODatabaseDocumentRemote) session2).getSessionMetadata().getDebugLastHost());
+      session2.close();
+    }
+
+    assertEquals(urls.stream().filter((x) -> x.contains("2424")).count(), 1);
+    assertEquals(urls.stream().filter((x) -> x.contains("2425")).count(), 1);
+    assertEquals(urls.stream().filter((x) -> x.contains("2426")).count(), 1);
+    remote1.close();
+  }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  @Test
+  public void testRoundRobinShutdownWriteRestartWrite()
+          throws InterruptedException, ClassNotFoundException, InstantiationException,
+          IllegalAccessException, IOException {
+    OrientDB remote1 =
+            new OrientDB(
+                    "remote:localhost;localhost:2425;localhost:2426",
+                    "root",
+                    "root",
+                    OrientDBConfig.builder()
+                            .addConfig(CLIENT_CONNECTION_STRATEGY, "ROUND_ROBIN_CONNECT")
+                            .build());
+    Set<String> urls = new HashSet<>();
+    ODatabaseSession session =
+            remote1.open(ConnectionStrategiesEEIT.class.getSimpleName(), "admin", "admin");
+    urls.add(((ODatabaseDocumentRemote) session).getSessionMetadata().getDebugLastHost());
+    session.close();
+
+    for (int i = 0; i < 10; i++) {
+      ODatabaseSession session2 =
+              remote1.open(ConnectionStrategiesEEIT.class.getSimpleName(), "admin", "admin");
+      urls.add(((ODatabaseDocumentRemote) session2).getSessionMetadata().getDebugLastHost());
+      for (int ji = 0; ji < 100; ji++) {
+        session2.save(session2.newVertex());
+      }
+      session2.close();
+    }
+
+    ODatabaseSession session1 =
+            remote1.open(ConnectionStrategiesEEIT.class.getSimpleName(), "admin", "admin");
+    urls.add(((ODatabaseDocumentRemote) session1).getSessionMetadata().getDebugLastHost());
+    session1.close();
+
+    assertEquals(urls.stream().filter((x) -> x.contains("2424")).count(), 1);
+    assertEquals(urls.stream().filter((x) -> x.contains("2425")).count(), 1);
+    assertEquals(urls.stream().filter((x) -> x.contains("2426")).count(), 1);
+
+    server1.shutdown();
+    server1.waitForShutdown();
+    urls.clear();
+
+    for (int i = 0; i < 10; i++) {
+      ODatabaseSession session2 =
+              remote1.open(ConnectionStrategiesEEIT.class.getSimpleName(), "admin", "admin");
+      urls.add(((ODatabaseDocumentRemote) session2).getSessionMetadata().getDebugLastHost());
+      for (int ji = 0; ji < 100; ji++) {
+        session2.save(session2.newVertex());
+      }
+      session2.close();
+    }
+
+    for (int i = 0; i < 2; i++) {
+      ODatabaseSession session2 =
+              remote1.open(ConnectionStrategiesEEIT.class.getSimpleName(), "admin", "admin");
+      try (OResultSet res = session2.query("select count(*) as count from V")) {
+        assertEquals((long) res.next().getProperty("count"), 2000l);
+      }
+      urls.add(((ODatabaseDocumentRemote) session2).getSessionMetadata().getDebugLastHost());
+      session2.close();
+    }
+
+    assertEquals(urls.stream().filter((x) -> x.contains("2424")).count(), 1);
+
+    Thread writer =
+            new Thread(
+                    () -> {
+                      for (int i = 0; i < 10; i++) {
+                        while (true) {
+                          try {
+                            ODatabaseSession session2 =
+                                    remote1.open(
+                                            ConnectionStrategiesEEIT.class.getSimpleName(), "admin", "admin");
+                            urls.add(
+                                    ((ODatabaseDocumentRemote) session2)
+                                            .getSessionMetadata()
+                                            .getDebugLastHost());
+                            session2.begin();
+                            for (int ji = 0; ji < 100; ji++) {
+                              session2.save(session2.newVertex());
+                            }
+                            session2.commit();
+                            session2.close();
+                            Thread.sleep(5);
+                            break;
+                          } catch (Exception e) {
+                            OLogManager.instance().warn(this, "OH NO!", e);
+                            e.printStackTrace();
+                          }
+                        }
+                      }
+                      OLogManager.instance().warn(this, "WRITE DONE!");
+                    });
+
+    writer.start();
+
+    Thread.sleep(20);
+
+    server1.startup(
+            Thread.currentThread()
+                    .getContextClassLoader()
+                    .getResourceAsStream("orientdb-simple-dserver-config-1.xml"));
+    server1.activate();
+    server1.getDistributedManager().waitUntilNodeOnline();
+    server1
+            .getDistributedManager()
+            .waitUntilNodeOnline(
+                    server1.getDistributedManager().getLocalNodeName(),
+                    ConnectionStrategiesEEIT.class.getSimpleName());
+    
+    writer.join();
+
+    for (int i = 0; i < 1000; i++) {
+      ODatabaseSession session2 =
+              remote1.open(ConnectionStrategiesEEIT.class.getSimpleName(), "admin", "admin");
+      try (OResultSet res = session2.query("select count(*) as count from V")) {
+        assertEquals((long) res.next().getProperty("count"), 3000l);
       }
       urls.add(((ODatabaseDocumentRemote) session2).getSessionMetadata().getDebugLastHost());
       session2.close();
