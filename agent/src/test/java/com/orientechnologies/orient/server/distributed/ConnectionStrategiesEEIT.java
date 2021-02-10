@@ -331,7 +331,7 @@ public class ConnectionStrategiesEEIT {
     assertEquals(urls.stream().filter((x) -> x.contains("2426")).count(), 1);
     remote1.close();
   }
-  
+
   // FIXME: broken test
   @Ignore
   @Test
