@@ -5,7 +5,7 @@ Fortify (develop) [![Fortify](https://gkesaporientdb.jaas-gcp.cloud.sap.corp/job
 Whitesource (develop) [![Whitesource](https://gkesaporientdb.jaas-gcp.cloud.sap.corp/job/3.0.x/job/orientdb-enterprise-whitesource-3.1.x/badge/icon)](https://gkesaporientdb.jaas-gcp.cloud.sap.corp/job/3.0.x/job/orientdb-enterprise-whitesource-3.1.x/) |
 PPMS (develop) [![PPMS](https://gkesaporientdb.jaas-gcp.cloud.sap.corp/job/3.0.x/job/orientdb-enterprise-whitesource-ppms2-3.1.x//badge/icon)](https://gkesaporientdb.jaas-gcp.cloud.sap.corp/job/3.0.x/job/orientdb-enterprise-whitesource-ppms2-3.1.x/)
 
-### ADB release
+### ODB 3.0 ADB release
 
 Current release process for ODB EE `v3.0.x` is as follows.
 
@@ -17,7 +17,7 @@ Put JAR file into folder: \\\\mediaserver.wdf.sap.corp\UPLINBOX\ORIENTDB_30_EE a
 
 Note for 3.1: https://launchpad.support.sap.com/#/notes/2915917
 
-### CWB process
+### ODB 3.1 CWB process
 
 When creating a pull request in https://github.wdf.sap.corp/final-assembly/orientdb-enterprise (e.g. 3.1.x -> fa/rel-3.1), a `CR-Id: unique technical ID` is required. This can be created following the `New CR` link in the PR.
 Note that when fixing the build, select `No Bug Report` as `Type` and check `Not Patch Relevant`!
