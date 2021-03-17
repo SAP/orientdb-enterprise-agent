@@ -18,6 +18,7 @@ import java.util.HashSet;
 import java.util.Set;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 
 public class ConnectionStrategiesEEIT {
@@ -38,7 +39,7 @@ public class ConnectionStrategiesEEIT {
   }
 
   // FIXME: broken test
-  // @Ignore
+  @Ignore
   @Test
   public void testRoundRobinShutdownWrite()
       throws InterruptedException, ClassNotFoundException, InstantiationException,
@@ -116,7 +117,7 @@ public class ConnectionStrategiesEEIT {
   }
 
   // FIXME: broken test
-  // @Ignore
+  @Ignore
   @Test
   public void testRoundRobinShutdownWriteRestartWithoutWait()
       throws InterruptedException, ClassNotFoundException, InstantiationException,
@@ -203,7 +204,7 @@ public class ConnectionStrategiesEEIT {
   }
 
   // FIXME: broken test
-  // @Ignore
+  @Ignore
   @Test
   public void testRoundRobinShutdownWriteRestartNoWaitWrite()
       throws InterruptedException, ClassNotFoundException, InstantiationException,
@@ -336,7 +337,7 @@ public class ConnectionStrategiesEEIT {
   }
 
   // FIXME: broken test
-  // @Ignore
+  @Ignore
   @Test
   public void testRoundRobinShutdownWriteRestartWrite()
       throws InterruptedException, ClassNotFoundException, InstantiationException,
