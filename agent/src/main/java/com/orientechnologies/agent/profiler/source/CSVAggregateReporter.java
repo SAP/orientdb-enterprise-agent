@@ -123,8 +123,10 @@ public class CSVAggregateReporter {
 
   public void report() {
 
+    OLogManager.instance().warn(this, "Reporting metrics (total " + registry.getMetrics().size() + ")");
+
     Pattern p = Pattern.compile("(?s)db.*.query.*");
-    
+
     SortedMap<String, Histogram> histograms = registry.getHistograms((name, metric) -> p.matcher(name).matches());
 
     final long timestamp = TimeUnit.MILLISECONDS.toSeconds(clock.getTime());
