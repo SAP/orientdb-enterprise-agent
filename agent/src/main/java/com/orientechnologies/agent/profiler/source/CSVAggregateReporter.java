@@ -123,7 +123,7 @@ public class CSVAggregateReporter {
 
   public void report() {
 
-    OLogManager.instance().warn(this, "Reporting metrics (total " + registry.getMetrics().size() + ")");
+    OLogManager.instance().debug(this, "Reporting metrics (total " + registry.getMetrics().size() + ")");
 
     Pattern p = Pattern.compile("(?s)db.*.query.*");
 
