@@ -375,8 +375,6 @@ public class OEnterpriseLocalPaginatedStorage extends OLocalPaginatedStorage {
 
     stateLock.acquireReadLock();
     try {
-
-      this.interruptionManager.enterCriticalPath();
       checkOpenness();
       final long freezeId;
 
@@ -482,7 +480,6 @@ public class OEnterpriseLocalPaginatedStorage extends OLocalPaginatedStorage {
           backupInProgress.set(false);
         }
       } finally {
-        this.interruptionManager.exitCriticalPath();
       }
     }
 
@@ -660,7 +657,6 @@ public class OEnterpriseLocalPaginatedStorage extends OLocalPaginatedStorage {
 
       stateLock.acquireWriteLock();
       try {
-        this.interruptionManager.enterCriticalPath();
         for (String file : files) {
           final File ibuFile = new File(backupDirectory, file);
 
@@ -703,7 +699,6 @@ public class OEnterpriseLocalPaginatedStorage extends OLocalPaginatedStorage {
         }
       } finally {
         stateLock.releaseWriteLock();
-        this.interruptionManager.exitCriticalPath();
       }
     } catch (IOException e) {
       throw OException.wrapException(
@@ -726,7 +721,6 @@ public class OEnterpriseLocalPaginatedStorage extends OLocalPaginatedStorage {
 
     stateLock.acquireWriteLock();
     try {
-      this.interruptionManager.enterCriticalPath();
       final List<String> currentFiles = new ArrayList<>(writeCache.files().keySet());
       final Locale serverLocale = configuration.getLocaleInstance();
       final OContextConfiguration contextConfiguration = configuration.getContextConfiguration();
@@ -981,7 +975,6 @@ public class OEnterpriseLocalPaginatedStorage extends OLocalPaginatedStorage {
       flushAllData();
     } finally {
       stateLock.releaseWriteLock();
-      this.interruptionManager.exitCriticalPath();
     }
   }
 
