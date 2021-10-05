@@ -59,6 +59,7 @@ import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
 import java.nio.channels.OverlappingFileLockException;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
@@ -111,15 +112,20 @@ public class OEnterpriseLocalPaginatedStorage extends OLocalPaginatedStorage {
         try {
           final String[] files = fetchIBUFiles(backupDirectory);
 
+
           final OLogSequenceNumber lastLsn;
           final long nextIndex;
+          final UUID backupUUID;
 
           if (files.length == 0) {
             lastLsn = null;
             nextIndex = 0;
+            backupUUID = null;
           } else {
             lastLsn = extractIBULsn(backupDirectory, files[files.length - 1]);
             nextIndex = extractIndexFromIBUFile(backupDirectory, files[files.length - 1]) + 1;
+            backupUUID = extractDbInstanceUUID(backupDirectory, files[0]);
+            checkDatabaseInstanceId(backupUUID);
           }
 
           final SimpleDateFormat dateFormat = new SimpleDateFormat(INCREMENTAL_BACKUP_DATEFORMAT);
@@ -266,6 +272,39 @@ public class OEnterpriseLocalPaginatedStorage extends OLocalPaginatedStorage {
     }
   }
 
+
+
+  private UUID extractDbInstanceUUID(File backupDirectory, String file) throws IOException {
+    final File ibuFile = new File(backupDirectory, file);
+    final RandomAccessFile rndIBUFile;
+    try {
+      rndIBUFile = new RandomAccessFile(ibuFile, "r");
+    } catch (FileNotFoundException e) {
+      throw OException.wrapException(new OStorageException("Backup file was not found"), e);
+    }
+
+    try {
+      final FileChannel ibuChannel = rndIBUFile.getChannel();
+      ibuChannel.position(3 * OLongSerializer.LONG_SIZE + 1);
+
+      final InputStream inputStream = Channels.newInputStream(ibuChannel);
+      final BufferedInputStream bufferedInputStream = new BufferedInputStream(inputStream);
+      final ZipInputStream zipInputStream = new ZipInputStream(bufferedInputStream, Charset.forName(configuration.getCharset()));
+
+      ZipEntry zipEntry;
+      while ((zipEntry = zipInputStream.getNextEntry()) != null) {
+        if (zipEntry.getName().equals("database_instance.uuid")) {
+          DataInputStream dis = new DataInputStream(zipInputStream);
+          UUID uuid = UUID.fromString(dis.readUTF());
+          return uuid;
+        }
+      }
+    } finally {
+      rndIBUFile.close();
+    }
+    return null;
+  }
+
   private long extractIndexFromIBUFile(final File backupDirectory, final String fileName) throws IOException {
     final File file = new File(backupDirectory, fileName);
     final RandomAccessFile rndFile = new RandomAccessFile(file, "r");
@@ -310,6 +349,28 @@ public class OEnterpriseLocalPaginatedStorage extends OLocalPaginatedStorage {
           try {
             final long startSegment;
             final OLogSequenceNumber freezeLsn;
+
+            if (fromLsn == null) {
+              try {
+                UUID databaseInstanceUUID = super.readDatabaseInstanceId();
+                if (databaseInstanceUUID == null) {
+                  atomicOperationsManager.executeInsideAtomicOperation((atomicOperation) -> {
+                    generateDatabaseInstanceId(atomicOperation);
+                  });
+                  databaseInstanceUUID = super.readDatabaseInstanceId();
+                }
+                final ZipEntry zipEntry = new ZipEntry("database_instance.uuid");
+
+                zipOutputStream.putNextEntry(zipEntry);
+                zipOutputStream.flush();
+                DataOutputStream dos = new DataOutputStream(zipOutputStream);
+                dos.writeUTF(databaseInstanceUUID.toString());
+                dos.flush();
+//                dos.close();
+              } finally {
+                zipOutputStream.flush();
+              }
+            }
 
             final long newSegmentFreezeId = atomicOperationsManager.freezeAtomicOperations(null, null);
             try {
@@ -517,6 +578,9 @@ public class OEnterpriseLocalPaginatedStorage extends OLocalPaginatedStorage {
 
           continue;
         }
+        if(zipEntry.getName().equalsIgnoreCase("database_instance.uuid")){
+          continue;
+        }
 
         if (zipEntry.getName().equals(CONF_UTF_8_ENTRY_NAME)) {
           replaceConfiguration(zipInputStream, Charset.forName("UTF-8"));
@@ -675,6 +739,11 @@ public class OEnterpriseLocalPaginatedStorage extends OLocalPaginatedStorage {
       openIndexes();
 
       makeFullCheckpoint();
+
+      atomicOperationsManager.executeInsideAtomicOperation((atomicOperation2) -> {
+        generateDatabaseInstanceId(atomicOperation2);
+      });
+
     } finally {
       stateLock.releaseWriteLock();
       interruptionManager.exitCriticalPath();

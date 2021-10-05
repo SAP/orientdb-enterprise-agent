@@ -191,6 +191,7 @@ public class StorageBackupTest {
     OFileUtils.deleteRecursively(new File(backedUpDbDirectory));
 
     OrientDBEmbedded embedded = (OrientDBEmbedded) OrientDBInternal.embedded(buildDirectory, OrientDBConfig.defaultConfig());
+
     embedded.restore(backupDbName, null, null, null, backupDir.getAbsolutePath(), OrientDBConfig.defaultConfig());
     embedded.close();
 
