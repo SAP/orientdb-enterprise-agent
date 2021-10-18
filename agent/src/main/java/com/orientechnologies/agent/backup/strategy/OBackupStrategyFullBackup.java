@@ -22,6 +22,7 @@ import com.orientechnologies.agent.backup.OBackupConfig;
 import com.orientechnologies.agent.backup.OBackupListener;
 import com.orientechnologies.agent.backup.log.OBackupLogger;
 import com.orientechnologies.agent.backup.log.OBackupScheduledLog;
+import com.orientechnologies.orient.core.db.document.ODatabaseDocument;
 import com.orientechnologies.orient.core.record.impl.ODocument;
 import com.orientechnologies.orient.core.schedule.OCronExpression;
 import com.orientechnologies.orient.server.handler.OAutomaticBackup;
@@ -44,7 +45,7 @@ public class OBackupStrategyFullBackup extends OBackupStrategy {
     return OAutomaticBackup.MODE.FULL_BACKUP;
   }
 
-  protected String calculatePath() {
+  protected String calculatePath(ODatabaseDocument db) {
     final long begin = System.currentTimeMillis();
 
     String basePath = cfg.field(OBackupConfig.DIRECTORY);

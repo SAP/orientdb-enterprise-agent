@@ -27,6 +27,7 @@ import com.orientechnologies.backup.uploader.OUploadMetadata;
 import com.orientechnologies.common.log.OLogManager;
 import com.orientechnologies.orient.core.db.ODatabaseDocumentInternal;
 import com.orientechnologies.orient.core.db.document.ODatabaseDocument;
+import com.orientechnologies.orient.core.exception.OInvalidInstanceIdException;
 import com.orientechnologies.orient.core.record.impl.ODocument;
 import com.orientechnologies.orient.server.OServer;
 import com.orientechnologies.orient.server.handler.OAutomaticBackup;
@@ -88,6 +89,8 @@ public abstract class OBackupStrategy {
       OBackupFinishedLog finishedLog = (OBackupFinishedLog) logger.log(end);
       listener.onEvent(cfg, finishedLog);
       doUpload(listener, finishedLog);
+    } catch (OInvalidInstanceIdException ex) {
+      //schedule full backup
     } catch (Exception e) {
       OBackupErrorLog error = new OBackupErrorLog(start.getUnitId(), start.getTxId(), getUUID(), getDbName(), getMode().toString());
       StringWriter sw = new StringWriter();
@@ -238,7 +241,7 @@ public abstract class OBackupStrategy {
     try {
       db = getDatabase();
       db.activateOnCurrentThread();
-      String path = calculatePath();
+      String path = calculatePath(db);
       String fName = db.incrementalBackup(path);
       OBackupFinishedLog end = endBackup(start.getUnitId(), start.getTxId());
       end.setFileName(fName);
@@ -260,7 +263,7 @@ public abstract class OBackupStrategy {
 
   public abstract OAutomaticBackup.MODE getMode();
 
-  protected abstract String calculatePath();
+  protected abstract String calculatePath(ODatabaseDocument db);
 
   public abstract Date scheduleNextExecution(OBackupListener listener);
 
@@ -273,8 +276,6 @@ public abstract class OBackupStrategy {
     String dbName = cfg.field(OBackupConfig.DBNAME);
 
     OServer server = logger.getServer();
-
-    String url = server.getAvailableStorageNames().get(dbName);
 
     ODatabaseDocumentInternal db = server.getDatabases().openNoAuthenticate(dbName, null);
 

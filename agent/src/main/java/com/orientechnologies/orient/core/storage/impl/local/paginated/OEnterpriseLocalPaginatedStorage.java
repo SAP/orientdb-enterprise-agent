@@ -32,6 +32,7 @@ import com.orientechnologies.orient.core.config.OContextConfiguration;
 import com.orientechnologies.orient.core.config.OStorageConfigurationImpl;
 import com.orientechnologies.orient.core.db.record.ORecordOperation;
 import com.orientechnologies.orient.core.exception.OBackupInProgressException;
+import com.orientechnologies.orient.core.exception.OInvalidInstanceIdException;
 import com.orientechnologies.orient.core.exception.OStorageException;
 import com.orientechnologies.orient.core.id.ORecordId;
 import com.orientechnologies.orient.core.index.engine.OBaseIndexEngine;
@@ -59,6 +60,7 @@ import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
 import java.nio.channels.OverlappingFileLockException;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
@@ -73,17 +75,17 @@ import java.util.zip.ZipOutputStream;
 public class OEnterpriseLocalPaginatedStorage extends OLocalPaginatedStorage {
   private static final String INCREMENTAL_BACKUP_LOCK = "backup.ibl";
 
-  public static final  String        IBU_EXTENSION                 = ".ibu";
-  public static final  String        CONF_ENTRY_NAME               = "database.ocf";
-  public static final  String        INCREMENTAL_BACKUP_DATEFORMAT = "yyyy-MM-dd-HH-mm-ss";
-  private static final String        CONF_UTF_8_ENTRY_NAME         = "database_utf8.ocf";
-  private final        AtomicBoolean backupInProgress              = new AtomicBoolean(false);
+  public static final String IBU_EXTENSION = ".ibu";
+  public static final String CONF_ENTRY_NAME = "database.ocf";
+  public static final String INCREMENTAL_BACKUP_DATEFORMAT = "yyyy-MM-dd-HH-mm-ss";
+  private static final String CONF_UTF_8_ENTRY_NAME = "database_utf8.ocf";
+  private final AtomicBoolean backupInProgress = new AtomicBoolean(false);
 
   private List<OEnterpriseStorageOperationListener> listeners = new CopyOnWriteArrayList<>();
 
 
   public OEnterpriseLocalPaginatedStorage(String name, String filePath, String mode, int id, OReadCache readCache,
-      OClosableLinkedContainer<Long, OFileClassic> files, long maxWalSegSize) throws IOException {
+                                          OClosableLinkedContainer<Long, OFileClassic> files, long maxWalSegSize) throws IOException {
     super(name, filePath, mode, id, readCache, files, maxWalSegSize);
     OLogManager.instance().info(this, "Enterprise storage installed correctly.");
   }
@@ -93,33 +95,75 @@ public class OEnterpriseLocalPaginatedStorage extends OLocalPaginatedStorage {
     return incrementalBackup(new File(backupDirectory), started);
   }
 
+  public boolean isLastBackupCompatibleWithUUID(final File backupDirectory) throws IOException {
+    if (!backupDirectory.exists()) {
+      return true;
+    }
+
+    final Path fileLockPath = backupDirectory.toPath().resolve(INCREMENTAL_BACKUP_LOCK);
+    try (FileChannel lockChannel = FileChannel.open(fileLockPath,
+            StandardOpenOption.CREATE, StandardOpenOption.WRITE)) {
+      try (final FileLock fileLock = lockChannel.lock()) {
+        final String[] files = fetchIBUFiles(backupDirectory);
+        if (files.length > 0) {
+          UUID backupUUID = extractDbInstanceUUID(backupDirectory, files[0]);
+          try {
+            checkDatabaseInstanceId(backupUUID);
+          } catch (OInvalidInstanceIdException ex) {
+            return false;
+          }
+
+        }
+      } catch (final OverlappingFileLockException e) {
+        OLogManager.instance().error(this,
+                "Another incremental backup process is in progress, please wait till it will be finished"
+                , null);
+      } catch (final IOException e) {
+        throw OException.wrapException(new OStorageException("Error during incremental backup"), e);
+      }
+
+      try {
+        Files.deleteIfExists(fileLockPath);
+      } catch (IOException e) {
+        throw OException.wrapException(new OStorageException("Error during incremental backup"), e);
+      }
+    }
+    return true;
+
+  }
+
   private String incrementalBackup(final File backupDirectory, OCallable<Void, Void> started) {
     String fileName = "";
 
     if (!backupDirectory.exists()) {
       if (!backupDirectory.mkdirs()) {
         throw new OStorageException(
-            "Backup directory " + backupDirectory.getAbsolutePath() + " does not exist and can not be created");
+                "Backup directory " + backupDirectory.getAbsolutePath() + " does not exist and can not be created");
       }
     }
 
     final Path fileLockPath = backupDirectory.toPath().resolve(INCREMENTAL_BACKUP_LOCK);
-    try(FileChannel lockChannel = FileChannel.open(fileLockPath,
+    try (FileChannel lockChannel = FileChannel.open(fileLockPath,
             StandardOpenOption.CREATE, StandardOpenOption.WRITE)) {
-      try(final FileLock fileLock = lockChannel.lock()) {
+      try (final FileLock fileLock = lockChannel.lock()) {
         RandomAccessFile rndIBUFile = null;
         try {
           final String[] files = fetchIBUFiles(backupDirectory);
 
+
           final OLogSequenceNumber lastLsn;
           final long nextIndex;
+          final UUID backupUUID;
 
           if (files.length == 0) {
             lastLsn = null;
             nextIndex = 0;
+            backupUUID = null;
           } else {
             lastLsn = extractIBULsn(backupDirectory, files[files.length - 1]);
             nextIndex = extractIndexFromIBUFile(backupDirectory, files[files.length - 1]) + 1;
+            backupUUID = extractDbInstanceUUID(backupDirectory, files[0]);
+            checkDatabaseInstanceId(backupUUID);
           }
 
           final SimpleDateFormat dateFormat = new SimpleDateFormat(INCREMENTAL_BACKUP_DATEFORMAT);
@@ -174,7 +218,7 @@ public class OEnterpriseLocalPaginatedStorage extends OLocalPaginatedStorage {
           }
         }
       }
-    }  catch (final OverlappingFileLockException e) {
+    } catch (final OverlappingFileLockException e) {
       OLogManager.instance().error(this,
               "Another incremental backup process is in progress, please wait till it will be finished"
               , null);
@@ -266,6 +310,38 @@ public class OEnterpriseLocalPaginatedStorage extends OLocalPaginatedStorage {
     }
   }
 
+
+  private UUID extractDbInstanceUUID(File backupDirectory, String file) throws IOException {
+    final File ibuFile = new File(backupDirectory, file);
+    final RandomAccessFile rndIBUFile;
+    try {
+      rndIBUFile = new RandomAccessFile(ibuFile, "r");
+    } catch (FileNotFoundException e) {
+      throw OException.wrapException(new OStorageException("Backup file was not found"), e);
+    }
+
+    try {
+      final FileChannel ibuChannel = rndIBUFile.getChannel();
+      ibuChannel.position(3 * OLongSerializer.LONG_SIZE + 1);
+
+      final InputStream inputStream = Channels.newInputStream(ibuChannel);
+      final BufferedInputStream bufferedInputStream = new BufferedInputStream(inputStream);
+      final ZipInputStream zipInputStream = new ZipInputStream(bufferedInputStream, Charset.forName(configuration.getCharset()));
+
+      ZipEntry zipEntry;
+      while ((zipEntry = zipInputStream.getNextEntry()) != null) {
+        if (zipEntry.getName().equals("database_instance.uuid")) {
+          DataInputStream dis = new DataInputStream(zipInputStream);
+          UUID uuid = UUID.fromString(dis.readUTF());
+          return uuid;
+        }
+      }
+    } finally {
+      rndIBUFile.close();
+    }
+    return null;
+  }
+
   private long extractIndexFromIBUFile(final File backupDirectory, final String fileName) throws IOException {
     final File file = new File(backupDirectory, fileName);
     final RandomAccessFile rndFile = new RandomAccessFile(file, "r");
@@ -286,8 +362,8 @@ public class OEnterpriseLocalPaginatedStorage extends OLocalPaginatedStorage {
     checkOpenness();
     if (!backupInProgress.compareAndSet(false, true)) {
       throw new OBackupInProgressException(
-          "You are trying to start incremental backup but it is in progress now, please wait till it will be finished", getName(),
-          OErrorCode.BACKUP_IN_PROGRESS);
+              "You are trying to start incremental backup but it is in progress now, please wait till it will be finished", getName(),
+              OErrorCode.BACKUP_IN_PROGRESS);
     }
 
     stateLock.acquireReadLock();
@@ -298,7 +374,7 @@ public class OEnterpriseLocalPaginatedStorage extends OLocalPaginatedStorage {
 
       if (!isWriteAllowedDuringIncrementalBackup())
         freezeId = atomicOperationsManager
-            .freezeAtomicOperations(OModificationOperationProhibitedException.class, "Incremental backup in progress");
+                .freezeAtomicOperations(OModificationOperationProhibitedException.class, "Incremental backup in progress");
       else
         freezeId = -1;
 
@@ -306,10 +382,32 @@ public class OEnterpriseLocalPaginatedStorage extends OLocalPaginatedStorage {
         final BufferedOutputStream bufferedOutputStream = new BufferedOutputStream(stream);
         try {
           final ZipOutputStream zipOutputStream = new ZipOutputStream(bufferedOutputStream,
-              Charset.forName(configuration.getCharset()));
+                  Charset.forName(configuration.getCharset()));
           try {
             final long startSegment;
             final OLogSequenceNumber freezeLsn;
+
+            if (fromLsn == null) {
+              try {
+                UUID databaseInstanceUUID = super.readDatabaseInstanceId();
+                if (databaseInstanceUUID == null) {
+                  atomicOperationsManager.executeInsideAtomicOperation((atomicOperation) -> {
+                    generateDatabaseInstanceId(atomicOperation);
+                  });
+                  databaseInstanceUUID = super.readDatabaseInstanceId();
+                }
+                final ZipEntry zipEntry = new ZipEntry("database_instance.uuid");
+
+                zipOutputStream.putNextEntry(zipEntry);
+                zipOutputStream.flush();
+                DataOutputStream dos = new DataOutputStream(zipOutputStream);
+                dos.writeUTF(databaseInstanceUUID.toString());
+                dos.flush();
+//                dos.close();
+              } finally {
+                zipOutputStream.flush();
+              }
+            }
 
             final long newSegmentFreezeId = atomicOperationsManager.freezeAtomicOperations(null, null);
             try {
@@ -379,12 +477,12 @@ public class OEnterpriseLocalPaginatedStorage extends OLocalPaginatedStorage {
       stream.write(binaryFileId, 0, binaryFileId.length);
 
       for (long pageIndex = 0; pageIndex < filledUpTo; pageIndex++) {
-        final OCacheEntry cacheEntry = readCache.silentLoadForRead(fileId, (int)pageIndex, writeCache,
+        final OCacheEntry cacheEntry = readCache.silentLoadForRead(fileId, (int) pageIndex, writeCache,
                 true);
         cacheEntry.acquireSharedLock();
         try {
           final OLogSequenceNumber pageLsn = ODurablePage
-              .getLogSequenceNumberFromPage(cacheEntry.getCachePointer().getBufferDuplicate());
+                  .getLogSequenceNumberFromPage(cacheEntry.getCachePointer().getBufferDuplicate());
 
           if (changeLsn == null || pageLsn.compareTo(changeLsn) > 0) {
 
@@ -417,15 +515,15 @@ public class OEnterpriseLocalPaginatedStorage extends OLocalPaginatedStorage {
   private void restoreFromIncrementalBackup(final File backupDirectory) {
     if (!backupDirectory.exists()) {
       throw new OStorageException("Directory which should contain incremental backup files (files with extension '" + IBU_EXTENSION
-          + "') is absent. It should be located at '" + backupDirectory.getAbsolutePath() + "'");
+              + "') is absent. It should be located at '" + backupDirectory.getAbsolutePath() + "'");
     }
 
     try {
       final String[] files = fetchIBUFiles(backupDirectory);
       if (files.length == 0) {
         throw new OStorageException(
-            "Cannot find incremental backup files (files with extension '" + IBU_EXTENSION + "') in directory '" + backupDirectory
-                .getAbsolutePath() + "'");
+                "Cannot find incremental backup files (files with extension '" + IBU_EXTENSION + "') in directory '" + backupDirectory
+                        .getAbsolutePath() + "'");
       }
 
       stateLock.acquireWriteLock();
@@ -517,6 +615,9 @@ public class OEnterpriseLocalPaginatedStorage extends OLocalPaginatedStorage {
 
           continue;
         }
+        if (zipEntry.getName().equalsIgnoreCase("database_instance.uuid")) {
+          continue;
+        }
 
         if (zipEntry.getName().equals(CONF_UTF_8_ENTRY_NAME)) {
           replaceConfiguration(zipInputStream, Charset.forName("UTF-8"));
@@ -527,7 +628,7 @@ public class OEnterpriseLocalPaginatedStorage extends OLocalPaginatedStorage {
         if (zipEntry.getName().toLowerCase(serverLocale).endsWith(OCASDiskWriteAheadLog.WAL_SEGMENT_EXTENSION)) {
           final String walName = zipEntry.getName();
           final int segmentIndex = walName
-              .lastIndexOf(".", walName.length() - OCASDiskWriteAheadLog.WAL_SEGMENT_EXTENSION.length() - 1);
+                  .lastIndexOf(".", walName.length() - OCASDiskWriteAheadLog.WAL_SEGMENT_EXTENSION.length() - 1);
           final String storageName = getName();
 
           if (segmentIndex < 0) {
@@ -675,6 +776,11 @@ public class OEnterpriseLocalPaginatedStorage extends OLocalPaginatedStorage {
       openIndexes();
 
       makeFullCheckpoint();
+
+      atomicOperationsManager.executeInsideAtomicOperation((atomicOperation2) -> {
+        generateDatabaseInstanceId(atomicOperation2);
+      });
+
     } finally {
       stateLock.releaseWriteLock();
       interruptionManager.exitCriticalPath();
@@ -683,7 +789,7 @@ public class OEnterpriseLocalPaginatedStorage extends OLocalPaginatedStorage {
 
   @Override
   public OStorageOperationResult<ORawBuffer> readRecord(ORecordId iRid, String iFetchPlan, boolean iIgnoreCache,
-      boolean prefetchRecords, ORecordCallback<ORawBuffer> iCallback) {
+                                                        boolean prefetchRecords, ORecordCallback<ORawBuffer> iCallback) {
 
     try {
       return super.readRecord(iRid, iFetchPlan, iIgnoreCache, prefetchRecords, iCallback);
