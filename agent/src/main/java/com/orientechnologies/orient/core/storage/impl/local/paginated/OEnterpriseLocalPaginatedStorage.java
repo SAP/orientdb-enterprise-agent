@@ -33,10 +33,7 @@ import com.orientechnologies.common.util.OPair;
 import com.orientechnologies.orient.core.config.OContextConfiguration;
 import com.orientechnologies.orient.core.config.OGlobalConfiguration;
 import com.orientechnologies.orient.core.db.record.ORecordOperation;
-import com.orientechnologies.orient.core.exception.OBackupInProgressException;
-import com.orientechnologies.orient.core.exception.OInvalidStorageEncryptionKeyException;
-import com.orientechnologies.orient.core.exception.OSecurityException;
-import com.orientechnologies.orient.core.exception.OStorageException;
+import com.orientechnologies.orient.core.exception.*;
 import com.orientechnologies.orient.core.id.ORecordId;
 import com.orientechnologies.orient.core.storage.ORawBuffer;
 import com.orientechnologies.orient.core.storage.ORecordCallback;
@@ -132,7 +129,45 @@ public class OEnterpriseLocalPaginatedStorage extends OLocalPaginatedStorage {
     }
   }
 
-  private String incrementalBackup(final File backupDirectory, OCallable<Void, Void> started) {
+  public boolean isLastBackupCompatibleWithUUID(final File backupDirectory) throws IOException {
+    if (!backupDirectory.exists()) {
+      return true;
+    }
+
+    final Path fileLockPath = backupDirectory.toPath().resolve(INCREMENTAL_BACKUP_LOCK);
+    try (FileChannel lockChannel =
+        FileChannel.open(fileLockPath, StandardOpenOption.CREATE, StandardOpenOption.WRITE)) {
+      try (final FileLock fileLock = lockChannel.lock()) {
+        final String[] files = fetchIBUFiles(backupDirectory);
+        if (files.length > 0) {
+          UUID backupUUID = extractDbInstanceUUID(backupDirectory, files[0]);
+          try {
+            checkDatabaseInstanceId(backupUUID);
+          } catch (OInvalidInstanceIdException ex) {
+            return false;
+          }
+        }
+      } catch (final OverlappingFileLockException e) {
+        OLogManager.instance()
+            .error(
+                this,
+                "Another incremental backup process is in progress, please wait till it will be finished",
+                null);
+      } catch (final IOException e) {
+        throw OException.wrapException(new OStorageException("Error during incremental backup"), e);
+      }
+
+      try {
+        Files.deleteIfExists(fileLockPath);
+      } catch (IOException e) {
+        throw OException.wrapException(new OStorageException("Error during incremental backup"), e);
+      }
+    }
+    return true;
+  }
+
+  private String incrementalBackup(
+      final File backupDirectory, final OCallable<Void, Void> started) {
     String fileName = "";
 
     if (!backupDirectory.exists()) {
@@ -153,14 +188,18 @@ public class OEnterpriseLocalPaginatedStorage extends OLocalPaginatedStorage {
           final String[] files = fetchIBUFiles(backupDirectory);
 
           final OLogSequenceNumber lastLsn;
-          final long nextIndex;
+          long nextIndex;
+          final UUID backupUUID;
 
           if (files.length == 0) {
             lastLsn = null;
             nextIndex = 0;
+            backupUUID = null;
           } else {
             lastLsn = extractIBULsn(backupDirectory, files[files.length - 1]);
             nextIndex = extractIndexFromIBUFile(backupDirectory, files[files.length - 1]) + 1;
+            backupUUID = extractDbInstanceUUID(backupDirectory, files[0]);
+            checkDatabaseInstanceId(backupUUID);
           }
 
           final SimpleDateFormat dateFormat = new SimpleDateFormat(INCREMENTAL_BACKUP_DATEFORMAT);
@@ -264,6 +303,56 @@ public class OEnterpriseLocalPaginatedStorage extends OLocalPaginatedStorage {
     }
 
     return fileName;
+  }
+
+  private UUID extractDbInstanceUUID(File backupDirectory, String file) throws IOException {
+    final File ibuFile = new File(backupDirectory, file);
+    final RandomAccessFile rndIBUFile;
+    try {
+      rndIBUFile = new RandomAccessFile(ibuFile, "r");
+    } catch (FileNotFoundException e) {
+      throw OException.wrapException(new OStorageException("Backup file was not found"), e);
+    }
+
+    try {
+      final FileChannel ibuChannel = rndIBUFile.getChannel();
+      ibuChannel.position(3 * OLongSerializer.LONG_SIZE + 1);
+
+      final InputStream inputStream = Channels.newInputStream(ibuChannel);
+      final BufferedInputStream bufferedInputStream = new BufferedInputStream(inputStream);
+      final ZipInputStream zipInputStream =
+          new ZipInputStream(bufferedInputStream, Charset.forName(configuration.getCharset()));
+
+      ZipEntry zipEntry;
+      while ((zipEntry = zipInputStream.getNextEntry()) != null) {
+        if (zipEntry.getName().equals("database_instance.uuid")) {
+          DataInputStream dis = new DataInputStream(zipInputStream);
+          UUID uuid = UUID.fromString(dis.readUTF());
+          return uuid;
+        }
+      }
+    } finally {
+      rndIBUFile.close();
+    }
+    return null;
+  }
+
+  private void checkNoBackupInStorageDir(final File backupDirectory) {
+    if (getStoragePath() == null || backupDirectory == null) {
+      return;
+    }
+
+    boolean invalid = false;
+    try {
+      final File storageDir = getStoragePath().toFile();
+      if (backupDirectory.equals(storageDir)) {
+        invalid = true;
+      }
+    } catch (final Exception e) {
+    }
+    if (invalid) {
+      throw new OStorageException("Backup cannot be performed in the storage path");
+    }
   }
 
   public void registerStorageListener(OEnterpriseStorageOperationListener listener) {
@@ -393,6 +482,30 @@ public class OEnterpriseLocalPaginatedStorage extends OLocalPaginatedStorage {
           try {
             final long startSegment;
             final OLogSequenceNumber freezeLsn;
+
+            if (fromLsn == null) {
+              try {
+                UUID databaseInstanceUUID = super.readDatabaseInstanceId();
+                if (databaseInstanceUUID == null) {
+                  atomicOperationsManager.executeInsideAtomicOperation(
+                      null,
+                      atomicOperation -> {
+                        generateDatabaseInstanceId(atomicOperation);
+                      });
+                  databaseInstanceUUID = super.readDatabaseInstanceId();
+                }
+                final ZipEntry zipEntry = new ZipEntry("database_instance.uuid");
+
+                zipOutputStream.putNextEntry(zipEntry);
+                zipOutputStream.flush();
+                DataOutputStream dos = new DataOutputStream(zipOutputStream);
+                dos.writeUTF(databaseInstanceUUID.toString());
+                dos.flush();
+                //                dos.close();
+              } finally {
+                zipOutputStream.flush();
+              }
+            }
 
             final long newSegmentFreezeId =
                 atomicOperationsManager.freezeAtomicOperations(null, null);
@@ -782,6 +895,10 @@ public class OEnterpriseLocalPaginatedStorage extends OLocalPaginatedStorage {
           continue;
         }
 
+        if (zipEntry.getName().equalsIgnoreCase("database_instance.uuid")) {
+          continue;
+        }
+
         if (zipEntry.getName().equals(CONF_UTF_8_ENTRY_NAME)) {
           replaceConfiguration(zipInputStream);
 
@@ -973,6 +1090,12 @@ public class OEnterpriseLocalPaginatedStorage extends OLocalPaginatedStorage {
       openIndexes();
 
       flushAllData();
+
+      atomicOperationsManager.executeInsideAtomicOperation(
+          null,
+          atomicOperation2 -> {
+            generateDatabaseInstanceId(atomicOperation2);
+          });
     } finally {
       stateLock.releaseWriteLock();
     }
