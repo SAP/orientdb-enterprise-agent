@@ -64,7 +64,8 @@ public class OBackupStrategyMixBackup extends OBackupStrategy {
     }
     try {
       if (last != null
-          && ((OEnterpriseLocalPaginatedStorage) ((ODatabaseInternal) db).getStorage())
+          && ((OEnterpriseLocalPaginatedStorage)
+                  ((ODatabaseInternal) db).getStorage().getUnderlying())
               .isLastBackupCompatibleWithUUID(new File(last.getPath()))) {
         return last.getPath();
       }

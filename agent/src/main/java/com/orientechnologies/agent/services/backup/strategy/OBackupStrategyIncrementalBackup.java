@@ -58,7 +58,8 @@ public class OBackupStrategyIncrementalBackup extends OBackupStrategy {
       String path = last.getPath();
 
       try {
-        if (((OEnterpriseLocalPaginatedStorage) ((ODatabaseInternal) db).getStorage())
+        if (((OEnterpriseLocalPaginatedStorage)
+                ((ODatabaseInternal) db).getStorage().getUnderlying())
             .isLastBackupCompatibleWithUUID(new File(path))) {
           return last.getPath();
         }
