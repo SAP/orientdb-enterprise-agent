@@ -1,32 +1,36 @@
-OrientDB Enterprise Edition
-===================
+OrientDB Enterprise Agent
 
-Fortify (develop) [![Fortify](https://gkesaporientdb.jaas-gcp.cloud.sap.corp/job/3.1.x/job/orientdb-enterprise-fortify-3.1.x/badge/icon)](https://gkesaporientdb.jaas-gcp.cloud.sap.corp/job/3.1.x/job/orientdb-enterprise-fortify-3.1.x/) |
-Whitesource (develop) [![Whitesource](https://gkesaporientdb.jaas-gcp.cloud.sap.corp/job/3.0.x/job/orientdb-enterprise-whitesource-3.1.x/badge/icon)](https://gkesaporientdb.jaas-gcp.cloud.sap.corp/job/3.0.x/job/orientdb-enterprise-whitesource-3.1.x/) |
-PPMS (develop) [![PPMS](https://gkesaporientdb.jaas-gcp.cloud.sap.corp/job/3.0.x/job/orientdb-enterprise-whitesource-ppms2-3.1.x//badge/icon)](https://gkesaporientdb.jaas-gcp.cloud.sap.corp/job/3.0.x/job/orientdb-enterprise-whitesource-ppms2-3.1.x/)
+OrientDB Enterprise Agent an add-on to OrientDB Community edition, designed specifically for applications seeking a scalable, robust, and secure multi-model database. It add professional enterprise tools such as support forAuditing Tools, Metrics recording, Non-Stop Incremental Backups and Delta Synchronization in distributed.
 
-### ODB 3.0 ADB release
 
-Current release process for ODB EE `v3.0.x` is as follows.
+### Installation
 
-Create ADB request for final assembly: https://adbweb.wdf.sap.corp/  >  Patch Assembly >  Create ADB request. Use note https://launchpad.support.sap.com/#/notes/2875730 and copy text into input field next to the number, leave `SP Level` = 00.
+OrientDB Enterprise Agent is an additional package which can be installed in the [Community Edition](../gettingstarted/Tutorial-Installation.md). Download the Enterprise Agent jar package (or build it from sources) and copy it into the `/<orientdb>/plugins` directory, then start the server.
 
-Note: if you do not have permissions to create the request, ask NAAS (Tobias Schreck).
+At run-time, the Enterprise edition logs this message:
 
-Put JAR file into folder: \\\\mediaserver.wdf.sap.corp\UPLINBOX\ORIENTDB_30_EE and inform NAAS (Tobias Schreck).
+```
+2016-08-04 09:38:26:589 INFO  ***************************************************************************** [OEnterpriseAgent]
+2016-08-04 09:38:26:589 INFO  *                     ORIENTDB  -  ENTERPRISE EDITION                       * [OEnterpriseAgent]
+2016-08-04 09:38:26:589 INFO  ***************************************************************************** [OEnterpriseAgent]
+2016-08-04 09:38:26:589 INFO  * If you are in Production or Test, you must purchase a commercial license. * [OEnterpriseAgent]
+2016-08-04 09:38:26:589 INFO  * For more information look at: http://orientdb.com/orientdb-enterprise/    * [OEnterpriseAgent]
+2016-08-04 09:38:26:590 INFO  ***************************************************************************** [OEnterpriseAgent]
+```
 
-Note for `3.1`: https://launchpad.support.sap.com/#/notes/2915917
 
-### ODB 3.1 CWB process
+## Accessing EE Features from Studio
 
-When creating a pull request in https://github.wdf.sap.corp/final-assembly/orientdb-enterprise (e.g. `3.1.x` -> `fa/rel-3.1`), a `CR-Id: unique technical ID` is required. This can be created following the `New CR` link in the PR.
-Note that when fixing the build, select `No Bug Report` as `Type` and check `Not Patch Relevant`!
-In `Application Component` set our BCP component `BC-DB-ODB`.
+To access the Enterprise features from OrientDB Studio, from the login page, click on `SERVER MANAGEMENT` (top right corner) and enter root username and password
 
-Then `Next` and select the correct branch e.g. `fa/rel-3.1` and patch level e.g. `000`.
 
-Copy the `ID` of the correction request to the initial comment in your PR e.g. `CR-Id: 002075125900001706292020`. After that the CWB voter will vote successfully.
+## Building from sources
 
-> Put CWB CR on "patch request", only after the "stage, promote" was successful.
+To build OrientDB Enterprise Agent you need java (at least 8) and maven installed on your machine.
+From the mail directory, run the following command:
 
-> run `stage` with `fa/rel-3.1` in https://prod-build10300.wdf.sap.corp/job/final-assembly/job/final-assembly-orientdb-enterprise-SP-REL-common_directshipment/
+```
+mvn clean install
+```
+
+You will find the agent jar file in the `/agent/target` directory
