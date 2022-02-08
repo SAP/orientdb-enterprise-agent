@@ -12,7 +12,6 @@
     <packaging>pom</packaging>
     <modules>
         <module>agent</module>
-        <module>distribution-community-importers</module>
     </modules>
 
     <build>
