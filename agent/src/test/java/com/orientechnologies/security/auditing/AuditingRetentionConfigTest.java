@@ -10,12 +10,14 @@ import java.util.Date;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.junit.Assert;
+import org.junit.Ignore;
 import org.junit.Test;
 
 // FIXME: flaky tests
 public class AuditingRetentionConfigTest extends EEBaseServerHttpTest {
 
   @Test
+  @Ignore
   public void retentionGeneral() throws Exception {
     String security =
         OIOUtils.readStreamAsString(
