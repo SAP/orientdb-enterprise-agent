@@ -133,6 +133,10 @@
           <groupId>com.carrotsearch</groupId>
         </exclusion>
         <exclusion>
+          <artifactId>RoaringBitmap</artifactId>
+          <groupId>org.roaringbitmap</groupId>
+        </exclusion>
+        <exclusion>
           <artifactId>commons-lang</artifactId>
           <groupId>commons-lang</groupId>
         </exclusion>
@@ -310,6 +314,10 @@
         <exclusion>
           <artifactId>hppc</artifactId>
           <groupId>com.carrotsearch</groupId>
+        </exclusion>
+        <exclusion>
+          <artifactId>RoaringBitmap</artifactId>
+          <groupId>org.roaringbitmap</groupId>
         </exclusion>
         <exclusion>
           <artifactId>commons-lang</artifactId>

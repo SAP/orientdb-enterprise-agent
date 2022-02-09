@@ -42,6 +42,7 @@ public class OEnterpriseEnginePaginated extends OEngineLocalPaginated {
         getMode(configuration),
         storageId,
         getReadCache(),
+        this.bufferPool,
         files,
         maxWalSegSize,
         doubleWriteLogMaxSegSize);
