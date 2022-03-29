@@ -529,24 +529,33 @@ public class OEnterpriseLocalPaginatedStorage extends OLocalPaginatedStorage {
       stateLock.acquireWriteLock();
       try {
         interruptionManager.enterCriticalPath();
+        UUID restoreUUID = extractDbInstanceUUID(backupDirectory, files[0]);
+
         for (String file : files) {
-          final File ibuFile = new File(backupDirectory, file);
+          UUID fileUUID = extractDbInstanceUUID(backupDirectory, files[0]);
+          if ((restoreUUID == null && fileUUID == null) || (restoreUUID != null && restoreUUID.equals(fileUUID))) {
 
-          final RandomAccessFile rndIBUFile = new RandomAccessFile(ibuFile, "rw");
-          try {
-            final FileChannel ibuChannel = rndIBUFile.getChannel();
-            ibuChannel.position(3 * OLongSerializer.LONG_SIZE);
+            final File ibuFile = new File(backupDirectory, file);
 
-            final ByteBuffer buffer = ByteBuffer.allocate(1);
-            ibuChannel.read(buffer);
-            buffer.rewind();
+            final RandomAccessFile rndIBUFile = new RandomAccessFile(ibuFile, "rw");
+            try {
+              final FileChannel ibuChannel = rndIBUFile.getChannel();
+              ibuChannel.position(3 * OLongSerializer.LONG_SIZE);
 
-            final boolean fullBackup = buffer.get() == 1;
+              final ByteBuffer buffer = ByteBuffer.allocate(1);
+              ibuChannel.read(buffer);
+              buffer.rewind();
 
-            final InputStream inputStream = Channels.newInputStream(ibuChannel);
-            restoreFromIncrementalBackup(inputStream, fullBackup);
-          } finally {
-            rndIBUFile.close();
+              final boolean fullBackup = buffer.get() == 1;
+
+              final InputStream inputStream = Channels.newInputStream(ibuChannel);
+              restoreFromIncrementalBackup(inputStream, fullBackup);
+            } finally {
+              rndIBUFile.close();
+            }
+          } else {
+            OLogManager.instance().warn(this,
+                "Skipped file '" + file + "' is not a backup of the same database of previous backups");
           }
 
         }
