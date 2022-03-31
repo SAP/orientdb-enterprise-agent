@@ -25,7 +25,6 @@ import com.orientechnologies.orient.core.db.document.ODatabaseDocument;
 import com.orientechnologies.orient.core.db.document.ODatabaseDocumentTx;
 import com.orientechnologies.orient.core.db.tool.ODatabaseCompare;
 import com.orientechnologies.orient.core.id.ORID;
-import com.orientechnologies.orient.core.id.ORecordId;
 import com.orientechnologies.orient.core.metadata.schema.OClass;
 import com.orientechnologies.orient.core.metadata.schema.OSchema;
 import com.orientechnologies.orient.core.metadata.schema.OType;
@@ -48,7 +47,8 @@ public class StorageBackupMTTest {
       CountDownLatch latch = new CountDownLatch(4);
       backupIterationRecordCount.add(latch);
     }
-    String buildDirectory = System.getProperty("buildDirectory", "./target");
+    String buildDirectory = System.getProperty("buildDirectory", "./target") + "/backupTest";
+    OFileUtils.createDirectoryTree(buildDirectory);
     dbName = StorageBackupMTTest.class.getSimpleName();
     String dbDirectory = buildDirectory + File.separator + dbName;
 
