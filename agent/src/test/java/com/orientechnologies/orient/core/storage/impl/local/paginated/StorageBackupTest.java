@@ -70,7 +70,7 @@ public class StorageBackupTest {
     backupClass.createIndex("backupIndex", OClass.INDEX_TYPE.NOTUNIQUE, "num");
 
     final Random random = new Random();
-    for (int i = 0; i < 1000; i++) {
+    for (int i = 0; i < 1_000_000; i++) {
       final byte[] data = new byte[16];
       random.nextBytes(data);
 
@@ -142,7 +142,7 @@ public class StorageBackupTest {
     backupClass.createIndex("backupIndex", OClass.INDEX_TYPE.NOTUNIQUE, "num");
 
     final Random random = new Random();
-    for (int i = 0; i < 1000; i++) {
+    for (int i = 0; i < 1_000_000; i++) {
       final byte[] data = new byte[16];
       random.nextBytes(data);
 
@@ -164,7 +164,7 @@ public class StorageBackupTest {
     db.incrementalBackup(backupDir.getAbsolutePath());
 
     for (int n = 0; n < 3; n++) {
-      for (int i = 0; i < 1000; i++) {
+      for (int i = 0; i < 1_000_000; i++) {
         final byte[] data = new byte[16];
         random.nextBytes(data);
 

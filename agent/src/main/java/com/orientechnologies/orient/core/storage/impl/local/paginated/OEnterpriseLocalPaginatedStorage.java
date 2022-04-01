@@ -391,9 +391,7 @@ public class OEnterpriseLocalPaginatedStorage extends OLocalPaginatedStorage {
               try {
                 UUID databaseInstanceUUID = super.readDatabaseInstanceId();
                 if (databaseInstanceUUID == null) {
-                  atomicOperationsManager.executeInsideAtomicOperation((atomicOperation) -> {
-                    generateDatabaseInstanceId(atomicOperation);
-                  });
+                  atomicOperationsManager.executeInsideAtomicOperation(this::generateDatabaseInstanceId);
                   databaseInstanceUUID = super.readDatabaseInstanceId();
                 }
                 final ZipEntry zipEntry = new ZipEntry("database_instance.uuid");
@@ -403,7 +401,6 @@ public class OEnterpriseLocalPaginatedStorage extends OLocalPaginatedStorage {
                 DataOutputStream dos = new DataOutputStream(zipOutputStream);
                 dos.writeUTF(databaseInstanceUUID.toString());
                 dos.flush();
-//                dos.close();
               } finally {
                 zipOutputStream.flush();
               }
@@ -412,16 +409,19 @@ public class OEnterpriseLocalPaginatedStorage extends OLocalPaginatedStorage {
             final long newSegmentFreezeId = atomicOperationsManager.freezeAtomicOperations(null, null);
             try {
               final OLogSequenceNumber startLsn = writeAheadLog.end();
+              if(startLsn == null) {
+                throw new OStorageException("WAL is not used in database, incremental backup is not allowed");
+              }
 
-              if (startLsn != null)
-                freezeLsn = startLsn;
-              else
-                freezeLsn = new OLogSequenceNumber(0, 0);
-
+              freezeLsn = startLsn;
               writeAheadLog.addCutTillLimit(freezeLsn);
 
               writeAheadLog.appendNewSegment();
               startSegment = writeAheadLog.activeSegment();
+
+              if (!writeAheadLog.end().equals(startLsn)) {
+                throw new OStorageException("Atomic operations are not frozen, incremental backup can not be performed");
+              }
             } finally {
               atomicOperationsManager.releaseAtomicOperations(newSegmentFreezeId);
             }
@@ -432,6 +432,11 @@ public class OEnterpriseLocalPaginatedStorage extends OLocalPaginatedStorage {
 
               if (lastWALLsn != null && (lastLsn == null || lastWALLsn.compareTo(lastLsn) > 0)) {
                 lastLsn = lastWALLsn;
+              }
+
+              final OLogSequenceNumber startLsn = writeAheadLog.begin();
+              if (startLsn.compareTo(freezeLsn) > 0) {
+                throw new OStorageException("WAL was cut beyond allowed limits");
               }
             } finally {
               writeAheadLog.removeCutTillLimit(freezeLsn);
