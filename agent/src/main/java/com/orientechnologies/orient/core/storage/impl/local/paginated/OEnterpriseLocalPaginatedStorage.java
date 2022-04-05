@@ -534,11 +534,33 @@ public class OEnterpriseLocalPaginatedStorage extends OLocalPaginatedStorage {
       stateLock.acquireWriteLock();
       try {
         interruptionManager.enterCriticalPath();
+
+        final Locale serverLocale = configuration.getLocaleInstance();
+        final OContextConfiguration contextConfiguration = configuration.getContextConfiguration();
+        final String charset = configuration.getCharset();
+        final Locale locale = configuration.getLocaleInstance();
+
+        closeClusters(false);
+        closeIndexes(false);
+
+        sbTreeCollectionManager.clear();
+        sharedContainer.clearResources();
+        OAtomicOperation atomicOperation = atomicOperationsManager.startAtomicOperation();
+        boolean rollback = false;
+        try {
+          ((OClusterBasedStorageConfiguration) configuration).close(atomicOperation);
+        } catch (RuntimeException e) {
+          rollback = true;
+          throw e;
+        } finally {
+          atomicOperationsManager.endAtomicOperation(rollback);
+        }
+
+        configuration = null;
+
         for (String file : files) {
           final File ibuFile = new File(backupDirectory, file);
-
-          final RandomAccessFile rndIBUFile = new RandomAccessFile(ibuFile, "rw");
-          try {
+          try (RandomAccessFile rndIBUFile = new RandomAccessFile(ibuFile, "rw")) {
             final FileChannel ibuChannel = rndIBUFile.getChannel();
             ibuChannel.position(3 * OLongSerializer.LONG_SIZE);
 
@@ -549,12 +571,46 @@ public class OEnterpriseLocalPaginatedStorage extends OLocalPaginatedStorage {
             final boolean fullBackup = buffer.get() == 1;
 
             final InputStream inputStream = Channels.newInputStream(ibuChannel);
-            restoreFromIncrementalBackup(inputStream, fullBackup);
-          } finally {
-            rndIBUFile.close();
+            restoreFromIncrementalBackup(charset, locale, serverLocale, contextConfiguration,
+                    inputStream, fullBackup);
+          }
+        }
+
+        if (OClusterBasedStorageConfiguration.exists(writeCache)) {
+          configuration = new OClusterBasedStorageConfiguration(this);
+          ((OClusterBasedStorageConfiguration) configuration).load(contextConfiguration);
+        } else {
+          if (Files.exists(getStoragePath().resolve("database.ocf"))) {
+
+            final OClusterBasedStorageConfiguration atomicConfiguration = new OClusterBasedStorageConfiguration(this);
+            OAtomicOperation confAtomicOperation = atomicOperationsManager.startAtomicOperation();
+            boolean confRollback = false;
+            try {
+              atomicConfiguration.create(confAtomicOperation, contextConfiguration);
+            } catch (RuntimeException e) {
+              confRollback = true;
+              throw e;
+            } finally {
+              atomicOperationsManager.endAtomicOperation(confRollback);
+            }
+            configuration = atomicConfiguration;
+            Files.deleteIfExists(getStoragePath().resolve("database.ocf"));
           }
 
+          if (configuration == null) {
+            configuration = new OClusterBasedStorageConfiguration(this);
+            ((OClusterBasedStorageConfiguration) configuration).load(contextConfiguration);
+          }
         }
+
+        openClusters();
+        openIndexes();
+
+        makeFullCheckpoint();
+
+        atomicOperationsManager.executeInsideAtomicOperation((atomicOperation2) -> {
+          generateDatabaseInstanceId(atomicOperation2);
+        });
       } finally {
         stateLock.releaseWriteLock();
         interruptionManager.exitCriticalPath();
@@ -564,33 +620,13 @@ public class OEnterpriseLocalPaginatedStorage extends OLocalPaginatedStorage {
     }
   }
 
-  private void restoreFromIncrementalBackup(final InputStream inputStream, final boolean isFull) throws IOException {
+  private void restoreFromIncrementalBackup(final String charset, final Locale locale, final Locale serverLocale,
+                                            final OContextConfiguration contextConfiguration,
+                                            final InputStream inputStream, final boolean isFull) throws IOException {
     stateLock.acquireWriteLock();
     try {
       interruptionManager.enterCriticalPath();
       final List<String> currentFiles = new ArrayList<String>(writeCache.files().keySet());
-      final Locale serverLocale = configuration.getLocaleInstance();
-      final OContextConfiguration contextConfiguration = configuration.getContextConfiguration();
-      final String charset = configuration.getCharset();
-      final Locale locale = configuration.getLocaleInstance();
-
-      closeClusters(false);
-      closeIndexes(false);
-
-      sbTreeCollectionManager.clear();
-      sharedContainer.clearResources();
-      OAtomicOperation atomicOperation = atomicOperationsManager.startAtomicOperation();
-      boolean rollback = false;
-      try {
-        ((OClusterBasedStorageConfiguration) configuration).close(atomicOperation);
-      } catch (RuntimeException e) {
-        rollback = true;
-        throw e;
-      } finally {
-        atomicOperationsManager.endAtomicOperation(rollback);
-      }
-
-      configuration = null;
 
       final BufferedInputStream bufferedInputStream = new BufferedInputStream(inputStream);
       final ZipInputStream zipInputStream = new ZipInputStream(bufferedInputStream, Charset.forName(charset));
@@ -680,8 +716,8 @@ public class OEnterpriseLocalPaginatedStorage extends OLocalPaginatedStorage {
           }
 
           final long pageIndex = OLongSerializer.INSTANCE.deserializeNative(data, 0);
-
-          OCacheEntry cacheEntry = readCache.loadForWrite(fileId, pageIndex, true, writeCache, 1, false, null);
+          OCacheEntry cacheEntry = readCache.loadForWrite(fileId, pageIndex, true, writeCache, 1,
+                  false, null);
 
           if (cacheEntry == null) {
             do {
@@ -749,43 +785,6 @@ public class OEnterpriseLocalPaginatedStorage extends OLocalPaginatedStorage {
       if (!walTempDir.delete()) {
         OLogManager.instance().error(this, "Can not remove temporary backup directory " + walTempDir.getAbsolutePath(), null);
       }
-
-      if (OClusterBasedStorageConfiguration.exists(writeCache)) {
-        configuration = new OClusterBasedStorageConfiguration(this);
-        ((OClusterBasedStorageConfiguration) configuration).load(contextConfiguration);
-      } else {
-        if (Files.exists(getStoragePath().resolve("database.ocf"))) {
-
-          final OClusterBasedStorageConfiguration atomicConfiguration = new OClusterBasedStorageConfiguration(this);
-          OAtomicOperation confAtomicOperation = atomicOperationsManager.startAtomicOperation();
-          boolean confRollback = false;
-          try {
-            atomicConfiguration.create(confAtomicOperation, contextConfiguration);
-          } catch (RuntimeException e) {
-            confRollback = true;
-            throw e;
-          } finally {
-            atomicOperationsManager.endAtomicOperation(confRollback);
-          }
-          configuration = atomicConfiguration;
-          Files.deleteIfExists(getStoragePath().resolve("database.ocf"));
-        }
-
-        if (configuration == null) {
-          configuration = new OClusterBasedStorageConfiguration(this);
-          ((OClusterBasedStorageConfiguration) configuration).load(contextConfiguration);
-        }
-      }
-
-      openClusters();
-      openIndexes();
-
-      makeFullCheckpoint();
-
-      atomicOperationsManager.executeInsideAtomicOperation((atomicOperation2) -> {
-        generateDatabaseInstanceId(atomicOperation2);
-      });
-
     } finally {
       stateLock.releaseWriteLock();
       interruptionManager.exitCriticalPath();
