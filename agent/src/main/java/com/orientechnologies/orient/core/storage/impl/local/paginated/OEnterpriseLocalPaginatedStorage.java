@@ -564,11 +564,11 @@ public class OEnterpriseLocalPaginatedStorage extends OLocalPaginatedStorage {
             final FileChannel ibuChannel = rndIBUFile.getChannel();
             ibuChannel.position(3 * OLongSerializer.LONG_SIZE);
 
-            final ByteBuffer buffer = ByteBuffer.allocate(1);
-            ibuChannel.read(buffer);
-            buffer.rewind();
+              final ByteBuffer buffer = ByteBuffer.allocate(1);
+              ibuChannel.read(buffer);
+              buffer.rewind();
 
-            final boolean fullBackup = buffer.get() == 1;
+              final boolean fullBackup = buffer.get() == 1;
 
             final InputStream inputStream = Channels.newInputStream(ibuChannel);
             restoreFromIncrementalBackup(charset, locale, serverLocale, contextConfiguration,
