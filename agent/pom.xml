@@ -96,6 +96,7 @@
                                     <exclude>orientdb</exclude>
                                 </excludes>
                             </artifactSet>
+                            <createDependencyReducedPom>false</createDependencyReducedPom>
                         </configuration>
                     </execution>
                 </executions>
