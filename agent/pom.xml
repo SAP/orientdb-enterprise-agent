@@ -4,7 +4,7 @@
     <parent>
         <groupId>com.orientechnologies</groupId>
         <artifactId>orientdb-enterprise-parent</artifactId>
-        <version>3.1.17</version>
+        <version>3.1.18-SNAPSHOT</version>
         <relativePath>../</relativePath>
     </parent>
     <artifactId>agent</artifactId>
@@ -254,8 +254,4 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
-
-  <scm>
-    <tag>3.1.17</tag>
-  </scm>
 </project>
