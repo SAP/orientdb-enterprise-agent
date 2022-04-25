@@ -448,7 +448,7 @@ public class OEnterpriseLocalPaginatedStorage extends OLocalPaginatedStorage {
           OErrorCode.BACKUP_IN_PROGRESS);
     }
 
-    stateLock.acquireReadLock();
+    stateLock.readLock().lock();
     try {
       checkOpenness();
       final long freezeId;
@@ -573,7 +573,7 @@ public class OEnterpriseLocalPaginatedStorage extends OLocalPaginatedStorage {
       }
     } finally {
       try {
-        stateLock.releaseReadLock();
+        stateLock.readLock().unlock();
 
         if (singleThread) {
           backupInProgress.set(false);
@@ -799,7 +799,7 @@ public class OEnterpriseLocalPaginatedStorage extends OLocalPaginatedStorage {
                 + "'");
       }
 
-      stateLock.acquireWriteLock();
+      stateLock.writeLock().lock();
       try {
         final String aesKeyEncoded =
             getConfiguration()
@@ -884,7 +884,7 @@ public class OEnterpriseLocalPaginatedStorage extends OLocalPaginatedStorage {
         postprocessIncrementalBackup(contextConfiguration);
 
       } finally {
-        stateLock.releaseWriteLock();
+        stateLock.writeLock().unlock();
       }
     } catch (IOException e) {
       throw OException.wrapException(
@@ -953,7 +953,7 @@ public class OEnterpriseLocalPaginatedStorage extends OLocalPaginatedStorage {
       final boolean isFull)
       throws IOException {
 
-    stateLock.acquireWriteLock();
+    stateLock.writeLock().lock();
     try {
       final List<String> currentFiles = new ArrayList<>(writeCache.files().keySet());
 
@@ -1147,7 +1147,7 @@ public class OEnterpriseLocalPaginatedStorage extends OLocalPaginatedStorage {
                 null);
       }
     } finally {
-      stateLock.releaseWriteLock();
+      stateLock.writeLock().unlock();
     }
   }
 
