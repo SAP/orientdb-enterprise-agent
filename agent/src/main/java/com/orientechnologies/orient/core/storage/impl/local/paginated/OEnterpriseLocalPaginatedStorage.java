@@ -366,7 +366,7 @@ public class OEnterpriseLocalPaginatedStorage extends OLocalPaginatedStorage {
               OErrorCode.BACKUP_IN_PROGRESS);
     }
 
-    stateLock.acquireReadLock();
+    stateLock.readLock().lock();
     try {
 
       checkOpenness();
@@ -452,7 +452,7 @@ public class OEnterpriseLocalPaginatedStorage extends OLocalPaginatedStorage {
           atomicOperationsManager.releaseAtomicOperations(freezeId);
       }
     } finally {
-      stateLock.releaseReadLock();
+      stateLock.readLock().unlock();
 
       backupInProgress.set(false);
     }
@@ -531,7 +531,7 @@ public class OEnterpriseLocalPaginatedStorage extends OLocalPaginatedStorage {
                         .getAbsolutePath() + "'");
       }
 
-      stateLock.acquireWriteLock();
+      stateLock.writeLock().lock();
       try {
         interruptionManager.enterCriticalPath();
 
@@ -612,7 +612,7 @@ public class OEnterpriseLocalPaginatedStorage extends OLocalPaginatedStorage {
           generateDatabaseInstanceId(atomicOperation2);
         });
       } finally {
-        stateLock.releaseWriteLock();
+        stateLock.writeLock().unlock();
         interruptionManager.exitCriticalPath();
       }
     } catch (IOException e) {
@@ -623,7 +623,7 @@ public class OEnterpriseLocalPaginatedStorage extends OLocalPaginatedStorage {
   private void restoreFromIncrementalBackup(final String charset, final Locale locale, final Locale serverLocale,
                                             final OContextConfiguration contextConfiguration,
                                             final InputStream inputStream, final boolean isFull) throws IOException {
-    stateLock.acquireWriteLock();
+    stateLock.writeLock().lock();
     try {
       interruptionManager.enterCriticalPath();
       final List<String> currentFiles = new ArrayList<String>(writeCache.files().keySet());
@@ -786,7 +786,7 @@ public class OEnterpriseLocalPaginatedStorage extends OLocalPaginatedStorage {
         OLogManager.instance().error(this, "Can not remove temporary backup directory " + walTempDir.getAbsolutePath(), null);
       }
     } finally {
-      stateLock.releaseWriteLock();
+      stateLock.writeLock().unlock();
       interruptionManager.exitCriticalPath();
     }
   }
