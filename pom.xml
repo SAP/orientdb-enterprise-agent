@@ -6,7 +6,7 @@
         <version>3.1.18</version>
     </parent>
     <artifactId>orientdb-enterprise-parent</artifactId>
-  <version>3.1.18-SNAPSHOT</version>
+  <version>3.1.18</version>
     <packaging>pom</packaging>
     <modules>
         <module>agent</module>
