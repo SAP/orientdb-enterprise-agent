@@ -1,13 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
 
     <parent>
         <groupId>com.orientechnologies</groupId>
         <artifactId>orientdb-enterprise-parent</artifactId>
-        <version>3.0.43-SNAPSHOT</version>
+        <version>3.0.43</version>
         <relativePath>../</relativePath>
     </parent>
 
@@ -96,8 +95,7 @@
                         <phase>package</phase>
                         <configuration>
                             <target>
-                                <copy file="target/${project.build.finalName}.jar"
-                                      tofile="target/${project.build.finalName}.zip"/>
+                                <copy file="target/${project.build.finalName}.jar" tofile="target/${project.build.finalName}.zip" />
                             </target>
                         </configuration>
                         <goals>
@@ -269,4 +267,8 @@
 
 
     </dependencies>
+
+  <scm>
+    <tag>3.0.43</tag>
+  </scm>
 </project>
